@@ -30,11 +30,15 @@ def prepare_dataset(batch):
     return batch
 
 
-def asr(file: str):
+def asr(file: str, show_pad = False):
     b = {}
     b['path'] = file
     a = prepare_dataset(resample(speech_file_to_array_fn(b)))
     input_dict = processor(a["input_values"][0], return_tensors="pt", padding=True)
     logits = model(input_dict.input_values.to(device)).logits
     pred_ids = torch.argmax(logits, dim=-1)[0]
-    return processor.decode(pred_ids)
+    if show_pad:
+        txt = processor.decode(pred_ids)
+    else:
+        txt = processor.decode(pred_ids).replace('[PAD]','')
+    return txt
