@@ -10,7 +10,7 @@ I made a simple python package for Thai ASR. I used model from [chompk/wav2vec2-
 pip install -e .
 ```
 
-## Usege
+## Usage
 
 ```python
 from pythaiasr import asr
@@ -18,3 +18,12 @@ from pythaiasr import asr
 file = "a.wav"
 print(asr(file))
 ```
+### API
+
+```python
+asr(file: str, show_pad: bool = False)
+```
+
+- file: path of sound file
+- show_pad: show [PAD] in output
+- return: thai text from ASR
