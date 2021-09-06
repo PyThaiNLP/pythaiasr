@@ -3,23 +3,23 @@ import torch
 from datasets import ClassLabel
 from transformers import Wav2Vec2CTCTokenizer, Wav2Vec2ForCTC, Wav2Vec2Processor
 import torchaudio
-import librosa
 import numpy as np
 
-processor = Wav2Vec2Processor.from_pretrained("chompk/wav2vec2-large-xlsr-thai-tokenized")
-model = Wav2Vec2ForCTC.from_pretrained("chompk/wav2vec2-large-xlsr-thai-tokenized")
+processor = Wav2Vec2Processor.from_pretrained("airesearch/wav2vec2-large-xlsr-53-th")
+model = Wav2Vec2ForCTC.from_pretrained("airesearch/wav2vec2-large-xlsr-53-th")
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def speech_file_to_array_fn(batch: dict) -> dict:
     speech_array, sampling_rate = torchaudio.load(batch["path"])
-    batch["speech"] = speech_array[0].numpy()
+    batch["speech"] = speech_array[0]
     batch["sampling_rate"] = sampling_rate
     return batch
 
 
 def resample(batch: dict) -> dict:
-    batch["speech"] = librosa.resample(np.asarray(batch["speech"]), 48_000, 16_000)
+    resampler=torchaudio.transforms.Resample(batch['sampling_rate'], 16_000)
+    batch["speech"] = resampler(batch["speech"]).numpy()
     batch["sampling_rate"] = 16_000
     return batch
 
@@ -30,7 +30,7 @@ def prepare_dataset(batch: dict) -> dict:
     return batch
 
 
-def asr(file: str, show_pad: bool = False) -> str:
+def asr(file: str, tokenized: bool = False) -> str:
     """
     :param str file: path of sound file
     :param bool show_pad: show [PAD] in output
@@ -44,9 +44,9 @@ def asr(file: str, show_pad: bool = False) -> str:
     logits = model(input_dict.input_values.to(device)).logits
     pred_ids = torch.argmax(logits, dim=-1)[0]
 
-    if show_pad:
+    if tokenized:
         txt = processor.decode(pred_ids)
     else:
-        txt = processor.decode(pred_ids).replace('[PAD]','')
+        txt = processor.decode(pred_ids).replace(' ','')
 
     return txt

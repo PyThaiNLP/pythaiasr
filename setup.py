@@ -12,8 +12,8 @@ requirements = [
     'datasets',
     'transformers',
     'torchaudio',
+    'soundfile',
     'torch',
-    'librosa',
     'numpy'
 ]
 
