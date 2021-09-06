@@ -12,6 +12,7 @@ requirements = [
     'datasets',
     'transformers',
     'torchaudio',
+    'soundfile',
     'torch',
     'numpy'
 ]
