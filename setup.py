@@ -13,7 +13,6 @@ requirements = [
     'transformers',
     'torchaudio',
     'torch',
-    'librosa',
     'numpy'
 ]
 
