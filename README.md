@@ -15,7 +15,7 @@ Model homepage: https://huggingface.co/airesearch/wav2vec2-large-xlsr-53-th
 ## Install
 
 ```sh
-pip install -e .
+pip install pythaiasr
 ```
 
 ## Usage
