@@ -20,7 +20,7 @@ requirements = [
 
 setup(
 	name='pythaiasr',
-	version='0.2',
+	version='0.3',
 	packages=['pythaiasr'],
 	url='https://github.com/wannaphong/pythaiasr',
 	license='Apache Software License 2.0',
