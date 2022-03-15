@@ -41,7 +41,7 @@ def asr(file: str, tokenized: bool = False) -> str:
     b['path'] = file
     a = prepare_dataset(resample(speech_file_to_array_fn(b)))
     input_dict = processor(a["input_values"][0], return_tensors="pt", padding=True)
-    logits = model(input_dict.input_values.to(device)).logits
+    logits = model(input_dict.input_values).logits
     pred_ids = torch.argmax(logits, dim=-1)[0]
 
     if tokenized:
