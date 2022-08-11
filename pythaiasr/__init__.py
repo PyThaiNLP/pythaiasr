@@ -53,7 +53,7 @@ class ASR:
         logits = self.model(input_dict.input_values).logits
         pred_ids = torch.argmax(logits, dim=-1)[0]
         if self.model_name == "airesearch/wav2vec2-large-xlsr-53-th":
-            txt = self.processor.decode(pred_ids).replace(' ','')
+            txt = self.processor.decode(pred_ids)
         else:
             txt = self.processor.batch_decode(logits.detach().numpy()).text[0]
         return txt

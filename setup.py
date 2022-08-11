@@ -27,7 +27,7 @@ extras = {
 
 setup(
 	name='pythaiasr',
-	version='1.1.1',
+	version='1.1.2',
 	packages=['pythaiasr'],
 	url='https://github.com/pythainlp/pythaiasr',
 	license='Apache Software License 2.0',
