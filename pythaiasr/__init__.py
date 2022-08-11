@@ -54,9 +54,9 @@ class ASR:
         pred_ids = torch.argmax(logits, dim=-1)[0]
 
         if tokenized:
-            txt = self.processor.decode(pred_ids)
+            txt = self.processor.batch_decode(logits.detach().numpy()).text
         else:
-            txt = self.processor.decode(pred_ids).replace(' ','')
+            txt = self.processor.batch_decode(logits.detach().numpy()).text.replace(' ','')
         return txt
 
 _model_name = "airesearch/wav2vec2-large-xlsr-53-th"
