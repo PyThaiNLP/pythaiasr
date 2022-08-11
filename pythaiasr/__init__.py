@@ -8,14 +8,14 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class ASR:
-    def __init__(self, model: str="wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm", device=None) -> None:
+    def __init__(self, model: str="airesearch/wav2vec2-large-xlsr-53-th", device=None) -> None:
         """
         :param str model: The ASR model
         :param str device: device
 
         **Options for model**
-            * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* (default) - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) + language model 
-            * *airesearch/wav2vec2-large-xlsr-53-th* - AI RESEARCH - PyThaiNLP model
+            * *airesearch/wav2vec2-large-xlsr-53-th* (default) - AI RESEARCH - PyThaiNLP model
+            * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) + language model 
             * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) + language model 
         """
         self.processor = AutoProcessor.from_pretrained(model)
@@ -59,7 +59,7 @@ class ASR:
             txt = self.processor.decode(pred_ids).replace(' ','')
         return txt
 
-_model_name = "wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm"
+_model_name = "airesearch/wav2vec2-large-xlsr-53-th"
 _model = None
 
 
@@ -72,8 +72,8 @@ def asr(file: str, tokenized: bool = False, model: str = _model_name) -> str:
     :rtype: str
 
     **Options for model**
-        * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* (default) - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) + language model 
-        * *airesearch/wav2vec2-large-xlsr-53-th* - AI RESEARCH - PyThaiNLP model
+        * *airesearch/wav2vec2-large-xlsr-53-th* (default) - AI RESEARCH - PyThaiNLP model
+        * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) + language model 
         * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) + language model 
     """
     global _model, _model_name
