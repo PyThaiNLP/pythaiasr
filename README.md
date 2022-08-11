@@ -18,6 +18,14 @@ Model homepage: https://huggingface.co/airesearch/wav2vec2-large-xlsr-53-th
 pip install pythaiasr
 ```
 
+**For Wav2Vec2 with language model:**
+if you want to use wannaphong/wav2vec2-large-xlsr-53-th-cv8-* model, you needs to install by the step.
+
+```sh
+pip install pythaiasr[lm]
+pip install https://github.com/kpu/kenlm/archive/refs/heads/master.zip
+```
+
 ## Usage
 
 ```python
