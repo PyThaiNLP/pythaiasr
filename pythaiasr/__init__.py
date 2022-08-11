@@ -18,6 +18,7 @@ class ASR:
         speech_array, sampling_rate = torchaudio.load(batch["path"])
         batch["speech"] = speech_array[0]
         batch["sampling_rate"] = sampling_rate
+        return batch
 
     def resample(self, batch: dict) -> dict:
         resampler=torchaudio.transforms.Resample(batch['sampling_rate'], 16_000)
@@ -52,6 +53,7 @@ def asr(file: str, tokenized: bool = False, model: str = "airesearch/wav2vec2-la
     """
     :param str file: path of sound file
     :param bool show_pad: show [PAD] in output
+    :param str model: The ASR model
     :return: thai text from ASR
     :rtype: str
     """
