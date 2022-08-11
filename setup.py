@@ -20,7 +20,7 @@ requirements = [
 extras = {
 	"lm":[
 		"pyctcdecode>=0.4.0",
-		"kenlm @ git+https://github.com/kpu/kenlm.git"
+		"kenlm @ https://github.com/kpu/kenlm/archive/refs/heads/master.zip"
 	]
 }
 
