@@ -55,6 +55,7 @@ def asr(file: str, tokenized: bool = False, model: str = "airesearch/wav2vec2-la
     :return: thai text from ASR
     :rtype: str
     """
+    global _model, _model_name
     if model!=_model:
         _model = ASR(model)
         _model_name = model
