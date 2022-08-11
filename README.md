@@ -37,11 +37,10 @@ print(asr(file))
 ### API
 
 ```python
-asr(file: str, show_pad: bool = False, model: str = "airesearch/wav2vec2-large-xlsr-53-th")
+asr(file: str, model: str = "airesearch/wav2vec2-large-xlsr-53-th")
 ```
 
 - file: path of sound file
-- show_pad: show [PAD] in output
 - model: The ASR model
 - return: thai text from ASR
 

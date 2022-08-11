@@ -19,6 +19,7 @@ class ASR:
             * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) + language model 
         """
         self.processor = AutoProcessor.from_pretrained(model)
+        self.model_name = model
         self.model = AutoModelForCTC.from_pretrained(model)
         if device!=None:
             self.device = torch.device(device)
@@ -40,10 +41,9 @@ class ASR:
         batch["input_values"] = self.processor(batch["speech"], sampling_rate=batch["sampling_rate"]).input_values
         return batch
     
-    def __call__(self, file: str, tokenized: bool = False) -> str:
+    def __call__(self, file: str) -> str:
         """
         :param str file: path of sound file
-        :param bool show_pad: show [PAD] in output
         :param str model: The ASR model
         """
         b = {}
@@ -53,20 +53,16 @@ class ASR:
         logits = self.model(input_dict.input_values).logits
         pred_ids = torch.argmax(logits, dim=-1)[0]
 
-        if tokenized:
-            txt = self.processor.batch_decode(logits.detach().numpy()).text
-        else:
-            txt = self.processor.batch_decode(logits.detach().numpy()).text.replace(' ','')
+        txt = self.processor.batch_decode(logits.detach().numpy()).text[0]
         return txt
 
 _model_name = "airesearch/wav2vec2-large-xlsr-53-th"
 _model = None
 
 
-def asr(file: str, tokenized: bool = False, model: str = _model_name) -> str:
+def asr(file: str, model: str = _model_name) -> str:
     """
     :param str file: path of sound file
-    :param bool show_pad: show [PAD] in output
     :param str model: The ASR model
     :return: thai text from ASR
     :rtype: str
@@ -81,4 +77,4 @@ def asr(file: str, tokenized: bool = False, model: str = _model_name) -> str:
         _model = ASR(model)
         _model_name = model
 
-    return _model(file=file, tokenized=tokenized)
+    return _model(file=file)
