@@ -17,22 +17,30 @@ requirements = [
     'numpy'
 ]
 
+extras = {
+	"lm":[
+		"pyctcdecode",
+		"https://github.com/kpu/kenlm/archive/master.zip"
+	]
+}
+
 
 setup(
 	name='pythaiasr',
-	version='0.3',
+	version='1.0.0',
 	packages=['pythaiasr'],
-	url='https://github.com/wannaphong/pythaiasr',
+	url='https://github.com/pythainlp/pythaiasr',
 	license='Apache Software License 2.0',
 	author='Wannaphong Phatthiyaphaibun',
 	author_email='wannaphong@yahoo.com',
 	keywords = 'asr',
 	description='Python Thai ASR',
     install_requires=requirements,
+	extras_require=extras,
 	long_description=(read('README.md')),
     long_description_content_type='text/markdown',
 	classifiers= [
-		'Development Status :: 1 - Planning',
+		'Development Status :: 5 - Production/Stable',
 		'Intended Audience :: Developers',
 		'Natural Language :: Thai',
 		'License :: OSI Approved :: Apache Software License',
