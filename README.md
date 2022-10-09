@@ -54,3 +54,11 @@ You can read about models from the list:
 - [*airesearch/wav2vec2-large-xlsr-53-th* - AI RESEARCH - PyThaiNLP model](https://medium.com/airesearch-in-th/airesearch-in-th-3c1019a99cd)
 - [*annaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) + language model](https://huggingface.co/wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm) 
 - [*wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) + language model](https://huggingface.co/wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut)
+
+### Docker
+To use this inside of Docker do the following:
+```sh
+docker build -t <Your Tag name> .
+docker run docker run --entrypoint /bin/bash -it <Your Tag name>
+```
+You will then get access to a interactive shell environment where you can use python with all packages installed.
