@@ -59,6 +59,6 @@ You can read about models from the list:
 To use this inside of Docker do the following:
 ```sh
 docker build -t <Your Tag name> .
- docker run docker run --entrypoint /bin/bash -it <Your Tag name>
+docker run docker run --entrypoint /bin/bash -it <Your Tag name>
 ```
 You will then get access to a interactive shell environment where you can use python with all packages installed.
