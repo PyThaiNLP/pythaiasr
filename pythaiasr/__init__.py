@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import torch
-from transformers import AutoProcessor, AutoModelForCTC
 import torchaudio
 import numpy as np
 
@@ -8,9 +7,10 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class ASR:
-    def __init__(self, model: str="airesearch/wav2vec2-large-xlsr-53-th", device=None) -> None:
+    def __init__(self, model: str="airesearch/wav2vec2-large-xlsr-53-th", lm=False, device=None) -> None:
         """
-        :param str model: The ASR model
+        :param str model: The ASR model name
+        :param bool lm: Use language model (default is False and except *airesearch/wav2vec2-large-xlsr-53-th* model)
         :param str device: device
 
         **Options for model**
@@ -18,9 +18,21 @@ class ASR:
             * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) + language model 
             * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) + language model 
         """
-        self.processor = AutoProcessor.from_pretrained(model)
         self.model_name = model
-        self.model = AutoModelForCTC.from_pretrained(model)
+        self.support_model =[
+            "airesearch/wav2vec2-large-xlsr-53-th",
+            "wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm",
+            "wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut"
+        ]
+        assert self.model_name in self.support_model
+        if not lm:
+            from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
+            self.processor = Wav2Vec2Processor.from_pretrained(self.model_name)
+            self.model = Wav2Vec2ForCTC.from_pretrained(self.model_name)
+        else:
+            from transformers import AutoProcessor, AutoModelForCTC
+            self.processor = AutoProcessor.from_pretrained(self.model_name)
+            self.model = AutoModelForCTC.from_pretrained(self.model_name)
         if device!=None:
             self.device = torch.device(device)
 
