@@ -10,7 +10,7 @@ def read(*paths):
 
 requirements = [
     'datasets',
-    'transformers',
+    'transformers<5.0',
     'torchaudio',
     'soundfile',
     'torch',
@@ -27,7 +27,7 @@ extras = {
 
 setup(
 	name='pythaiasr',
-	version='1.1.2',
+	version='1.2.0',
 	packages=['pythaiasr'],
 	url='https://github.com/pythainlp/pythaiasr',
 	license='Apache Software License 2.0',

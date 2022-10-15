@@ -19,7 +19,7 @@ pip install pythaiasr
 ```
 
 **For Wav2Vec2 with language model:**
-if you want to use wannaphong/wav2vec2-large-xlsr-53-th-cv8-* model, you needs to install by the step.
+if you want to use wannaphong/wav2vec2-large-xlsr-53-th-cv8-* model with language model, you needs to install by the step.
 
 ```sh
 pip install pythaiasr[lm]
@@ -37,17 +37,19 @@ print(asr(file))
 ### API
 
 ```python
-asr(file: str, model: str = "airesearch/wav2vec2-large-xlsr-53-th")
+asr(file: str, model: str = _model_name, lm: bool=False, device: str=None)
 ```
 
 - file: path of sound file
 - model: The ASR model
+- lm: Use language model (except *airesearch/wav2vec2-large-xlsr-53-th* model)
+- device: device
 - return: thai text from ASR
 
 **Options for model**
 - *airesearch/wav2vec2-large-xlsr-53-th* (default) - AI RESEARCH - PyThaiNLP model
-- *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) + language model 
-- *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) + language model 
+- *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer)
+- *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer)
 
 You can read about models from the list:
 
