@@ -7,7 +7,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class ASR:
-    def __init__(self, model: str="airesearch/wav2vec2-large-xlsr-53-th", lm=False, device=None) -> None:
+    def __init__(self, model: str="airesearch/wav2vec2-large-xlsr-53-th", lm: bool=False, device: str=None) -> None:
         """
         :param str model: The ASR model name
         :param bool lm: Use language model (default is False and except *airesearch/wav2vec2-large-xlsr-53-th* model)
@@ -74,21 +74,23 @@ _model_name = "airesearch/wav2vec2-large-xlsr-53-th"
 _model = None
 
 
-def asr(file: str, model: str = _model_name) -> str:
+def asr(file: str, model: str = _model_name, lm: bool=False, device: str=None) -> str:
     """
     :param str file: path of sound file
-    :param str model: The ASR model
+    :param str model: The ASR model name
+    :param bool lm: Use language model (except *airesearch/wav2vec2-large-xlsr-53-th* model)
+    :param str device: device
     :return: thai text from ASR
     :rtype: str
 
     **Options for model**
         * *airesearch/wav2vec2-large-xlsr-53-th* (default) - AI RESEARCH - PyThaiNLP model
-        * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) + language model 
-        * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) + language model 
+        * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) (+ language model)
+        * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) (+ language model)
     """
     global _model, _model_name
     if model!=_model or _model == None:
-        _model = ASR(model)
+        _model = ASR(model, lm=lm, device=device)
         _model_name = model
 
     return _model(file=file)
