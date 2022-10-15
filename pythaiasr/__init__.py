@@ -25,7 +25,8 @@ class ASR:
             "wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut"
         ]
         assert self.model_name in self.support_model
-        if not lm:
+        self.lm =lm
+        if not self.lm:
             from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
             self.processor = Wav2Vec2Processor.from_pretrained(self.model_name)
             self.model = Wav2Vec2ForCTC.from_pretrained(self.model_name)
@@ -64,7 +65,7 @@ class ASR:
         input_dict = self.processor(a["input_values"][0], return_tensors="pt", padding=True)
         logits = self.model(input_dict.input_values).logits
         pred_ids = torch.argmax(logits, dim=-1)[0]
-        if self.model_name == "airesearch/wav2vec2-large-xlsr-53-th":
+        if self.model_name == "airesearch/wav2vec2-large-xlsr-53-th" or self.lm:
             txt = self.processor.decode(pred_ids)
         else:
             txt = self.processor.batch_decode(logits.detach().numpy()).text[0]
