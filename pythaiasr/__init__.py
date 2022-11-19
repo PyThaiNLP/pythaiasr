@@ -2,6 +2,8 @@
 import torch
 import torchaudio
 import numpy as np
+from transformers.utils import logging
+logging.set_verbosity(40)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
