@@ -37,13 +37,14 @@ print(asr(file))
 ### API
 
 ```python
-asr(file: str, model: str = _model_name, lm: bool=False, device: str=None)
+asr(data: str, model: str = _model_name, lm: bool=False, device: str=None, sampling_rate: int=16_000)
 ```
 
-- file: path of sound file
+- data: path of sound file or numpy array of the voice
 - model: The ASR model
 - lm: Use language model (except *airesearch/wav2vec2-large-xlsr-53-th* model)
 - device: device
+- sampling_rate: The sample rate
 - return: thai text from ASR
 
 **Options for model**
