@@ -27,12 +27,13 @@ extras = {
 
 setup(
 	name='pythaiasr',
-	version='1.2.0',
+	version='1.3.0',
 	packages=['pythaiasr'],
 	url='https://github.com/pythainlp/pythaiasr',
 	license='Apache Software License 2.0',
 	author='Wannaphong Phatthiyaphaibun',
 	author_email='wannaphong@yahoo.com',
+	test_suite="tests",
 	keywords = 'asr',
 	description='Python Thai ASR',
     install_requires=requirements,
