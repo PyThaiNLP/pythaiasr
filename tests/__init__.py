@@ -3,6 +3,8 @@
 Unit test.
 
 Each file in tests/ is for each main package.
+
+PyThaiASR
 """
 import sys
 import unittest
