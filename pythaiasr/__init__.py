@@ -6,6 +6,13 @@ import logging
 from transformers.utils import logging
 logging.set_verbosity(40)
 import numpy as np
+import tempfile
+import os
+import time
+from pathlib import Path
+
+# Constants
+EPSILON = 1e-8  # Small value to prevent division by zero in normalization
 
 
 class ASR:
@@ -89,8 +96,6 @@ class ASR:
         if self.is_typhoon:
             import librosa
             import soundfile as sf
-            import tempfile
-            import os
             
             # Handle numpy array or file path
             if isinstance(data, np.ndarray):
@@ -98,7 +103,7 @@ class ASR:
                 with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
                     temp_path = tmp_file.name
                     # Normalize audio
-                    normalized_data = data / (np.max(np.abs(data)) + 1e-8)
+                    normalized_data = data / (np.max(np.abs(data)) + EPSILON)
                     sf.write(temp_path, normalized_data, sampling_rate)
                 
                 try:
@@ -117,7 +122,7 @@ class ASR:
                     sr = 16000
                 
                 # Normalize and save to temporary file
-                y = y / (np.max(np.abs(y)) + 1e-8)
+                y = y / (np.max(np.abs(y)) + EPSILON)
                 with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
                     temp_path = tmp_file.name
                     sf.write(temp_path, y, sr)
@@ -186,10 +191,13 @@ def transcribe(audio_file: str, model: str = "scb10x/typhoon-asr-realtime", with
     
     :param str audio_file: Path to audio file
     :param str model: The ASR model name (must be a Typhoon model)
-    :param bool with_timestamps: Whether to return word-level timestamps
+    :param bool with_timestamps: Whether to return word-level timestamps (estimated)
     :param str device: Device to run inference on ('cpu', 'cuda', or None for auto)
     :return: Dictionary containing transcription, timestamps (if requested), processing time, and audio duration
     :rtype: dict
+    
+    **Note**: Timestamps are estimated by uniformly distributing words across the audio duration.
+              They may not reflect actual word timing in natural speech with pauses or variable rates.
     
     **Supported models**
         * *scb10x/typhoon-asr-realtime* - Typhoon ASR Real-Time model
@@ -211,8 +219,6 @@ def transcribe(audio_file: str, model: str = "scb10x/typhoon-asr-realtime", with
         import nemo.collections.asr as nemo_asr
         import librosa
         import soundfile as sf
-        import time
-        from pathlib import Path
     except ImportError as e:
         raise ImportError(
             "nemo-toolkit and librosa are required for Typhoon ASR models. "
@@ -232,7 +238,7 @@ def transcribe(audio_file: str, model: str = "scb10x/typhoon-asr-realtime", with
     # Prepare audio
     audio_path = Path(audio_file)
     if not audio_path.exists():
-        raise FileNotFoundError(f"Audio file not found: {audio_file}")
+        raise FileNotFoundError(f"Audio file not found: {audio_path.absolute()}")
     
     # Load and preprocess audio
     y, sr = librosa.load(str(audio_path), sr=None)
@@ -244,11 +250,9 @@ def transcribe(audio_file: str, model: str = "scb10x/typhoon-asr-realtime", with
         sr = 16000
     
     # Normalize
-    y = y / (np.max(np.abs(y)) + 1e-8)
+    y = y / (np.max(np.abs(y)) + EPSILON)
     
     # Save to temporary file
-    import tempfile
-    import os
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
         temp_path = tmp_file.name
         sf.write(temp_path, y, sr)
@@ -269,7 +273,8 @@ def transcribe(audio_file: str, model: str = "scb10x/typhoon-asr-realtime", with
             
             result_data['text'] = transcription
             
-            # Generate estimated timestamps
+            # Generate estimated timestamps (uniformly distributed across audio duration)
+            # Note: These are estimates and may not reflect actual word timing
             timestamps = []
             if transcription and audio_duration > 0:
                 words = transcription.split()
