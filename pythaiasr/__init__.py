@@ -18,21 +18,43 @@ class ASR:
         **Options for model**
             * *airesearch/wav2vec2-large-xlsr-53-th* (default) - AI RESEARCH - PyThaiNLP model
             * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) + language model 
-            * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) + language model 
+            * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) + language model
+            * *scb10x/typhoon-asr-realtime* - Typhoon ASR Real-Time model
         """
         self.model_name = model
         self.support_model =[
             "airesearch/wav2vec2-large-xlsr-53-th",
             "wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm",
-            "wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut"
+            "wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut",
+            "scb10x/typhoon-asr-realtime"
         ]
         assert self.model_name in self.support_model
         self.lm = lm
+        self.is_typhoon = "typhoon" in model.lower()
+        
         if device!=None:
-            self.device = torch.device(device)
+            self.device = torch.device(device) if not self.is_typhoon else device
         else:
-            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        if not self.lm:
+            if self.is_typhoon:
+                self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            else:
+                self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        
+        # Load model based on type
+        if self.is_typhoon:
+            try:
+                import nemo.collections.asr as nemo_asr
+            except ImportError:
+                raise ImportError(
+                    "nemo-toolkit is required for Typhoon ASR models. "
+                    "Install it with: pip install pythaiasr[typhoon]"
+                )
+            self.model = nemo_asr.models.ASRModel.from_pretrained(
+                model_name=self.model_name,
+                map_location=self.device
+            )
+            self.processor = None
+        elif not self.lm:
             from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
             self.processor = Wav2Vec2Processor.from_pretrained(self.model_name)
             self.model = Wav2Vec2ForCTC.from_pretrained(self.model_name).to(self.device)
@@ -63,6 +85,53 @@ class ASR:
         :param str data: path of sound file or numpy array of the voice
         :param int sampling_rate: The sample rate
         """
+        # Typhoon ASR uses NeMo and has different API
+        if self.is_typhoon:
+            import librosa
+            import soundfile as sf
+            import tempfile
+            import os
+            
+            # Handle numpy array or file path
+            if isinstance(data, np.ndarray):
+                # Save numpy array to temporary file for Typhoon ASR
+                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
+                    temp_path = tmp_file.name
+                    # Normalize audio
+                    normalized_data = data / (np.max(np.abs(data)) + 1e-8)
+                    sf.write(temp_path, normalized_data, sampling_rate)
+                
+                try:
+                    transcriptions = self.model.transcribe(audio=[temp_path])
+                    txt = transcriptions[0] if transcriptions else ""
+                finally:
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+            else:
+                # File path - prepare audio for Typhoon ASR
+                y, sr = librosa.load(str(data), sr=None)
+                
+                # Resample if needed
+                if sr != 16000:
+                    y = librosa.resample(y, orig_sr=sr, target_sr=16000)
+                    sr = 16000
+                
+                # Normalize and save to temporary file
+                y = y / (np.max(np.abs(y)) + 1e-8)
+                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
+                    temp_path = tmp_file.name
+                    sf.write(temp_path, y, sr)
+                
+                try:
+                    transcriptions = self.model.transcribe(audio=[temp_path])
+                    txt = transcriptions[0] if transcriptions else ""
+                finally:
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+            
+            return txt
+        
+        # Wav2Vec2 models processing (existing code)
         b = {}
         if isinstance(data,np.ndarray):
             b["speech"] = data
@@ -101,6 +170,7 @@ def asr(data: str, model: str = _model_name, lm: bool=False, device: str=None, s
         * *airesearch/wav2vec2-large-xlsr-53-th* (default) - AI RESEARCH - PyThaiNLP model
         * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) (+ language model)
         * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) (+ language model)
+        * *scb10x/typhoon-asr-realtime* - Typhoon ASR Real-Time model (requires nemo-toolkit)
     """
     global _model, _model_name
     if model!=_model or _model == None:
