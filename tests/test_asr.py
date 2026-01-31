@@ -2,7 +2,7 @@
 
 import unittest
 import torchaudio
-from pythaiasr import asr, ASR
+from pythaiasr import asr, ASR, transcribe
 import os
 
 file = os.path.join(".", "tests", "common_voice_th_25686161.wav")
@@ -83,4 +83,63 @@ class TestKhaveePackage(unittest.TestCase):
                 sys.modules['nemo.collections'] = nemo_collections_backup
             if nemo_asr_backup:
                 sys.modules['nemo.collections.asr'] = nemo_asr_backup
+    
+    @unittest.skipUnless(
+        os.environ.get('TEST_TYPHOON_ASR', 'false').lower() == 'true',
+        "Skipping Typhoon ASR transcribe test - set TEST_TYPHOON_ASR=true to run"
+    )
+    def test_typhoon_transcribe(self):
+        """Test typhoon-asr-realtime transcribe function (requires nemo-toolkit)"""
+        try:
+            import nemo.collections.asr as nemo_asr
+        except ImportError:
+            self.skipTest("nemo-toolkit not installed")
+        
+        # Test basic transcription
+        result = transcribe(file, model="scb10x/typhoon-asr-realtime", device="cpu")
+        self.assertIsNotNone(result)
+        self.assertIsInstance(result, dict)
+        self.assertIn('text', result)
+        self.assertIn('processing_time', result)
+        self.assertIn('audio_duration', result)
+        self.assertIsInstance(result['text'], str)
+        self.assertIsInstance(result['processing_time'], float)
+        self.assertIsInstance(result['audio_duration'], float)
+    
+    @unittest.skipUnless(
+        os.environ.get('TEST_TYPHOON_ASR', 'false').lower() == 'true',
+        "Skipping Typhoon ASR transcribe with timestamps test - set TEST_TYPHOON_ASR=true to run"
+    )
+    def test_typhoon_transcribe_with_timestamps(self):
+        """Test typhoon-asr-realtime transcribe function with timestamps"""
+        try:
+            import nemo.collections.asr as nemo_asr
+        except ImportError:
+            self.skipTest("nemo-toolkit not installed")
+        
+        # Test transcription with timestamps
+        result = transcribe(file, model="scb10x/typhoon-asr-realtime", with_timestamps=True, device="cpu")
+        self.assertIsNotNone(result)
+        self.assertIsInstance(result, dict)
+        self.assertIn('text', result)
+        self.assertIn('timestamps', result)
+        self.assertIn('processing_time', result)
+        self.assertIn('audio_duration', result)
+        
+        # Check timestamps structure
+        if result['text']:  # Only check if transcription is not empty
+            self.assertIsInstance(result['timestamps'], list)
+            if len(result['timestamps']) > 0:
+                timestamp = result['timestamps'][0]
+                self.assertIn('word', timestamp)
+                self.assertIn('start', timestamp)
+                self.assertIn('end', timestamp)
+    
+    def test_typhoon_transcribe_non_typhoon_model(self):
+        """Test that transcribe() rejects non-Typhoon models"""
+        with self.assertRaises(ValueError) as context:
+            transcribe(file, model="airesearch/wav2vec2-large-xlsr-53-th")
+        
+        self.assertIn("only supports Typhoon ASR models", str(context.exception))
+
 

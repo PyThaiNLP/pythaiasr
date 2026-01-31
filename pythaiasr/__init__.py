@@ -178,3 +178,120 @@ def asr(data: str, model: str = _model_name, lm: bool=False, device: str=None, s
         _model_name = model
 
     return _model(data=data, sampling_rate=sampling_rate)
+
+
+def transcribe(audio_file: str, model: str = "scb10x/typhoon-asr-realtime", with_timestamps: bool = False, device: str = None) -> dict:
+    """
+    Real-time ASR inference with detailed output (Typhoon ASR models only).
+    
+    :param str audio_file: Path to audio file
+    :param str model: The ASR model name (must be a Typhoon model)
+    :param bool with_timestamps: Whether to return word-level timestamps
+    :param str device: Device to run inference on ('cpu', 'cuda', or None for auto)
+    :return: Dictionary containing transcription, timestamps (if requested), processing time, and audio duration
+    :rtype: dict
+    
+    **Supported models**
+        * *scb10x/typhoon-asr-realtime* - Typhoon ASR Real-Time model
+    
+    **Example**
+        >>> result = transcribe("audio.wav", with_timestamps=True)
+        >>> print(result['text'])
+        >>> print(result['processing_time'])
+        >>> for timestamp in result.get('timestamps', []):
+        ...     print(f"{timestamp['word']}: {timestamp['start']:.2f}s - {timestamp['end']:.2f}s")
+    """
+    if "typhoon" not in model.lower():
+        raise ValueError(
+            f"transcribe() function only supports Typhoon ASR models. "
+            f"Got model: {model}. Use asr() function for other models."
+        )
+    
+    try:
+        import nemo.collections.asr as nemo_asr
+        import librosa
+        import soundfile as sf
+        import time
+        from pathlib import Path
+    except ImportError as e:
+        raise ImportError(
+            "nemo-toolkit and librosa are required for Typhoon ASR models. "
+            "Install with: pip install pythaiasr[typhoon]"
+        ) from e
+    
+    # Determine device
+    if device is None:
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    
+    # Load model
+    asr_model = nemo_asr.models.ASRModel.from_pretrained(
+        model_name=model,
+        map_location=device
+    )
+    
+    # Prepare audio
+    audio_path = Path(audio_file)
+    if not audio_path.exists():
+        raise FileNotFoundError(f"Audio file not found: {audio_file}")
+    
+    # Load and preprocess audio
+    y, sr = librosa.load(str(audio_path), sr=None)
+    audio_duration = len(y) / sr
+    
+    # Resample if needed
+    if sr != 16000:
+        y = librosa.resample(y, orig_sr=sr, target_sr=16000)
+        sr = 16000
+    
+    # Normalize
+    y = y / (np.max(np.abs(y)) + 1e-8)
+    
+    # Save to temporary file
+    import tempfile
+    import os
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
+        temp_path = tmp_file.name
+        sf.write(temp_path, y, sr)
+    
+    try:
+        start_time = time.time()
+        
+        result_data = {}
+        
+        if with_timestamps:
+            # Get transcription with hypotheses for timestamp estimation
+            hypotheses = asr_model.transcribe(audio=[temp_path], return_hypotheses=True)
+            processing_time = time.time() - start_time
+            
+            transcription = ""
+            if hypotheses and len(hypotheses) > 0 and hasattr(hypotheses[0], 'text'):
+                transcription = hypotheses[0].text
+            
+            result_data['text'] = transcription
+            
+            # Generate estimated timestamps
+            timestamps = []
+            if transcription and audio_duration > 0:
+                words = transcription.split()
+                if len(words) > 0:
+                    avg_duration = audio_duration / len(words)
+                    for i, word in enumerate(words):
+                        timestamps.append({
+                            'word': word,
+                            'start': i * avg_duration,
+                            'end': (i + 1) * avg_duration
+                        })
+            result_data['timestamps'] = timestamps
+        else:
+            # Basic transcription
+            transcriptions = asr_model.transcribe(audio=[temp_path])
+            processing_time = time.time() - start_time
+            result_data['text'] = transcriptions[0] if transcriptions else ""
+        
+        result_data['processing_time'] = processing_time
+        result_data['audio_duration'] = audio_duration
+        
+        return result_data
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)

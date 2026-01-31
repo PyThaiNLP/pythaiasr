@@ -35,13 +35,38 @@ pip install pythaiasr[typhoon]
 
 ## Usage
 
+### Basic ASR
+
 ```python
 from pythaiasr import asr
 
 file = "a.wav"
 print(asr(file))
 ```
+
+### Real-Time Inference (Typhoon ASR only)
+
+For Typhoon ASR models, you can use the `transcribe` function for more detailed output including timestamps and processing metrics:
+
+```python
+from pythaiasr import transcribe
+
+# Basic transcription
+result = transcribe("audio.wav", model="scb10x/typhoon-asr-realtime")
+print(result['text'])
+print(f"Processing time: {result['processing_time']:.2f}s")
+print(f"Audio duration: {result['audio_duration']:.2f}s")
+
+# With word-level timestamps
+result = transcribe("audio.wav", model="scb10x/typhoon-asr-realtime", with_timestamps=True)
+print(result['text'])
+for timestamp in result['timestamps']:
+    print(f"{timestamp['word']}: {timestamp['start']:.2f}s - {timestamp['end']:.2f}s")
+```
+
 ### API
+
+#### asr()
 
 ```python
 asr(data: str, model: str = _model_name, lm: bool=False, device: str=None, sampling_rate: int=16_000)
@@ -53,6 +78,18 @@ asr(data: str, model: str = _model_name, lm: bool=False, device: str=None, sampl
 - device: device
 - sampling_rate: The sample rate
 - return: thai text from ASR
+
+#### transcribe() (Typhoon ASR only)
+
+```python
+transcribe(audio_file: str, model: str = "scb10x/typhoon-asr-realtime", with_timestamps: bool = False, device: str = None)
+```
+
+- audio_file: path to audio file
+- model: The ASR model name (must be a Typhoon model)
+- with_timestamps: Whether to return word-level timestamps
+- device: device ('cpu', 'cuda', or None for auto)
+- return: dict with 'text', 'processing_time', 'audio_duration', and optionally 'timestamps'
 
 **Options for model**
 - *airesearch/wav2vec2-large-xlsr-53-th* (default) - AI RESEARCH - PyThaiNLP model
