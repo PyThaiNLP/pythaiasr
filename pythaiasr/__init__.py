@@ -19,12 +19,23 @@ class ASR:
             * *airesearch/wav2vec2-large-xlsr-53-th* (default) - AI RESEARCH - PyThaiNLP model
             * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) + language model 
             * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) + language model 
+            * *biodatlab/whisper-small-th-combined* - Thai Whisper small model
+            * *biodatlab/whisper-th-medium-combined* - Thai Whisper medium model
+            * *biodatlab/whisper-th-large-combined* - Thai Whisper large model
         """
         self.model_name = model
         self.support_model =[
             "airesearch/wav2vec2-large-xlsr-53-th",
             "wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm",
-            "wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut"
+            "wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut",
+            "biodatlab/whisper-small-th-combined",
+            "biodatlab/whisper-th-medium-combined",
+            "biodatlab/whisper-th-large-combined"
+        ]
+        self.whisper_models = [
+            "biodatlab/whisper-small-th-combined",
+            "biodatlab/whisper-th-medium-combined",
+            "biodatlab/whisper-th-large-combined"
         ]
         assert self.model_name in self.support_model
         self.lm = lm
@@ -32,7 +43,15 @@ class ASR:
             self.device = torch.device(device)
         else:
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        if not self.lm:
+        
+        # Check if model is a Whisper model
+        self.is_whisper = self.model_name in self.whisper_models
+        
+        if self.is_whisper:
+            from transformers import WhisperProcessor, WhisperForConditionalGeneration
+            self.processor = WhisperProcessor.from_pretrained(self.model_name)
+            self.model = WhisperForConditionalGeneration.from_pretrained(self.model_name).to(self.device)
+        elif not self.lm:
             from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
             self.processor = Wav2Vec2Processor.from_pretrained(self.model_name)
             self.model = Wav2Vec2ForCTC.from_pretrained(self.model_name).to(self.device)
@@ -71,16 +90,36 @@ class ASR:
         else:
             b["path"] = data
             _preprocessing = self.speech_file_to_array_fn(b)
-        a = self.prepare_dataset(b)
-        input_dict = self.processor(a["input_values"][0], return_tensors="pt", padding=True).to(self.device)
-        logits = self.model(input_dict.input_values).logits
-        pred_ids = torch.argmax(logits, dim=-1)[0]
-        if self.model_name == "airesearch/wav2vec2-large-xlsr-53-th":
-            txt = self.processor.decode(pred_ids)
-        elif self.lm:
-            txt = self.processor.batch_decode(logits.detach().numpy()).text[0]
+        
+        if self.is_whisper:
+            # Whisper model processing
+            # Resample if needed
+            if b["sampling_rate"] != 16_000:
+                # Convert to tensor if needed
+                speech_tensor = b["speech"] if isinstance(b["speech"], torch.Tensor) else torch.tensor(b["speech"])
+                resampler = torchaudio.transforms.Resample(b['sampling_rate'], 16_000)
+                b["speech"] = resampler(speech_tensor).numpy()
+                b["sampling_rate"] = 16_000
+            
+            # Process audio with Whisper processor
+            input_features = self.processor(b["speech"], sampling_rate=16_000, return_tensors="pt").input_features
+            input_features = input_features.to(self.device)
+            
+            # Generate transcription
+            predicted_ids = self.model.generate(input_features)
+            txt = self.processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
         else:
-            txt = self.processor.decode(pred_ids)
+            # Wav2Vec2 model processing
+            a = self.prepare_dataset(b)
+            input_dict = self.processor(a["input_values"][0], return_tensors="pt", padding=True).to(self.device)
+            logits = self.model(input_dict.input_values).logits
+            pred_ids = torch.argmax(logits, dim=-1)[0]
+            if self.model_name == "airesearch/wav2vec2-large-xlsr-53-th":
+                txt = self.processor.decode(pred_ids)
+            elif self.lm:
+                txt = self.processor.batch_decode(logits.detach().numpy()).text[0]
+            else:
+                txt = self.processor.decode(pred_ids)
         return txt
 
 _model_name = "airesearch/wav2vec2-large-xlsr-53-th"
@@ -101,6 +140,9 @@ def asr(data: str, model: str = _model_name, lm: bool=False, device: str=None, s
         * *airesearch/wav2vec2-large-xlsr-53-th* (default) - AI RESEARCH - PyThaiNLP model
         * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) (+ language model)
         * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) (+ language model)
+        * *biodatlab/whisper-small-th-combined* - Thai Whisper small model
+        * *biodatlab/whisper-th-medium-combined* - Thai Whisper medium model
+        * *biodatlab/whisper-th-large-combined* - Thai Whisper large model
     """
     global _model, _model_name
     if model!=_model or _model == None:
