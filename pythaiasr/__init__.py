@@ -32,6 +32,11 @@ class ASR:
             "biodatlab/whisper-th-medium-combined",
             "biodatlab/whisper-th-large-combined"
         ]
+        self.whisper_models = [
+            "biodatlab/whisper-small-th-combined",
+            "biodatlab/whisper-th-medium-combined",
+            "biodatlab/whisper-th-large-combined"
+        ]
         assert self.model_name in self.support_model
         self.lm = lm
         if device!=None:
@@ -40,7 +45,7 @@ class ASR:
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
         # Check if model is a Whisper model
-        self.is_whisper = "whisper" in self.model_name.lower()
+        self.is_whisper = self.model_name in self.whisper_models
         
         if self.is_whisper:
             from transformers import WhisperProcessor, WhisperForConditionalGeneration
@@ -90,8 +95,10 @@ class ASR:
             # Whisper model processing
             # Resample if needed
             if b["sampling_rate"] != 16_000:
+                # Convert to tensor if needed
+                speech_tensor = b["speech"] if isinstance(b["speech"], torch.Tensor) else torch.tensor(b["speech"])
                 resampler = torchaudio.transforms.Resample(b['sampling_rate'], 16_000)
-                b["speech"] = resampler(torch.tensor(b["speech"])).numpy()
+                b["speech"] = resampler(speech_tensor).numpy()
                 b["sampling_rate"] = 16_000
             
             # Process audio with Whisper processor
