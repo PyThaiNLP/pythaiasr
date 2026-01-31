@@ -21,6 +21,10 @@ extras = {
 	"lm":[
 		"pyctcdecode>=0.4.0",
 		# "kenlm @ https://github.com/kpu/kenlm/archive/refs/heads/master.zip"
+	],
+	"typhoon":[
+		"nemo-toolkit[asr]>=1.21.0",
+		"librosa",
 	]
 }
 

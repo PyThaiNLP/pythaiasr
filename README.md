@@ -26,6 +26,13 @@ pip install pythaiasr[lm]
 pip install https://github.com/kpu/kenlm/archive/refs/heads/master.zip
 ```
 
+**For Typhoon ASR Real-Time:**
+if you want to use the Typhoon ASR Real-Time model (scb10x/typhoon-asr-realtime), you need to install the typhoon extra:
+
+```sh
+pip install pythaiasr[typhoon]
+```
+
 ## Usage
 
 ```python
@@ -51,12 +58,14 @@ asr(data: str, model: str = _model_name, lm: bool=False, device: str=None, sampl
 - *airesearch/wav2vec2-large-xlsr-53-th* (default) - AI RESEARCH - PyThaiNLP model
 - *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer)
 - *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer)
+- *scb10x/typhoon-asr-realtime* - Typhoon ASR Real-Time model (requires pythaiasr[typhoon])
 
 You can read about models from the list:
 
 - [*airesearch/wav2vec2-large-xlsr-53-th* - AI RESEARCH - PyThaiNLP model](https://medium.com/airesearch-in-th/airesearch-in-th-3c1019a99cd)
 - [*annaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) + language model](https://huggingface.co/wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm) 
 - [*wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) + language model](https://huggingface.co/wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut)
+- [*scb10x/typhoon-asr-realtime* - Typhoon ASR Real-Time model](https://huggingface.co/scb10x/typhoon-asr-realtime)
 
 ### Docker
 To use this inside of Docker do the following:
