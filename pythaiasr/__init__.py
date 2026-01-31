@@ -98,7 +98,7 @@ class ASR:
                 with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
                     temp_path = tmp_file.name
                     # Normalize audio
-                    normalized_data = data / (max(abs(data)) + 1e-8)
+                    normalized_data = data / (np.max(np.abs(data)) + 1e-8)
                     sf.write(temp_path, normalized_data, sampling_rate)
                 
                 try:
@@ -117,7 +117,7 @@ class ASR:
                     sr = 16000
                 
                 # Normalize and save to temporary file
-                y = y / (max(abs(y)) + 1e-8)
+                y = y / (np.max(np.abs(y)) + 1e-8)
                 with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
                     temp_path = tmp_file.name
                     sf.write(temp_path, y, sr)

@@ -56,7 +56,9 @@ class TestKhaveePackage(unittest.TestCase):
         """Test that appropriate error is raised when nemo-toolkit is not installed"""
         # Mock the import by temporarily modifying sys.modules if nemo is installed
         import sys
-        nemo_backup = sys.modules.get('nemo.collections.asr', None)
+        nemo_backup = sys.modules.get('nemo', None)
+        nemo_collections_backup = sys.modules.get('nemo.collections', None)
+        nemo_asr_backup = sys.modules.get('nemo.collections.asr', None)
         
         try:
             # Temporarily remove nemo from sys.modules if it exists
@@ -74,7 +76,11 @@ class TestKhaveePackage(unittest.TestCase):
             self.assertIn("nemo-toolkit", str(context.exception))
             self.assertIn("pythaiasr[typhoon]", str(context.exception))
         finally:
-            # Restore nemo if it was available
+            # Restore nemo modules if they were available
             if nemo_backup:
-                sys.modules['nemo.collections.asr'] = nemo_backup
+                sys.modules['nemo'] = nemo_backup
+            if nemo_collections_backup:
+                sys.modules['nemo.collections'] = nemo_collections_backup
+            if nemo_asr_backup:
+                sys.modules['nemo.collections.asr'] = nemo_asr_backup
 
