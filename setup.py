@@ -21,6 +21,9 @@ extras = {
 	"lm":[
 		"pyctcdecode>=0.4.0",
 		# "kenlm @ https://github.com/kpu/kenlm/archive/refs/heads/master.zip"
+	],
+	"stream":[
+		"pyaudio>=0.2.11"
 	]
 }
 
