@@ -150,3 +150,91 @@ def asr(data: str, model: str = _model_name, lm: bool=False, device: str=None, s
         _model_name = model
 
     return _model(data=data, sampling_rate=sampling_rate)
+
+
+def stream_asr(model: str = _model_name, lm: bool=False, device: str=None, 
+               chunk_duration: float=5.0, sampling_rate: int=16_000):
+    """
+    Stream audio from microphone/soundcard and perform real-time ASR.
+    
+    :param str model: The ASR model name
+    :param bool lm: Use language model (except *airesearch/wav2vec2-large-xlsr-53-th* model)
+    :param str device: device
+    :param float chunk_duration: Duration of each audio chunk in seconds (default: 5.0)
+    :param int sampling_rate: The sample rate (default: 16000)
+    :yield: Thai text transcription from each audio chunk
+    
+    **Options for model**
+        * *airesearch/wav2vec2-large-xlsr-53-th* (default) - AI RESEARCH - PyThaiNLP model
+        * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) (+ language model)
+        * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) (+ language model)
+        * *biodatlab/whisper-small-th-combined* - Thai Whisper small model
+        * *biodatlab/whisper-th-medium-combined* - Thai Whisper medium model
+        * *biodatlab/whisper-th-large-combined* - Thai Whisper large model
+    
+    **Example:**
+        .. code-block:: python
+        
+            from pythaiasr import stream_asr
+            
+            # Stream audio and print transcriptions
+            for transcription in stream_asr(chunk_duration=5.0):
+                print(transcription)
+                # Press Ctrl+C to stop
+    """
+    try:
+        import pyaudio
+    except ImportError:
+        raise ImportError(
+            "pyaudio is required for audio streaming. "
+            "Install it with: pip install pyaudio"
+        )
+    
+    global _model, _model_name
+    if model!=_model or _model == None:
+        _model = ASR(model, lm=lm, device=device)
+        _model_name = model
+    
+    # Initialize PyAudio
+    audio = pyaudio.PyAudio()
+    
+    # Calculate chunk size
+    chunk_size = int(sampling_rate * chunk_duration)
+    
+    try:
+        # Open stream
+        stream = audio.open(
+            format=pyaudio.paInt16,
+            channels=1,
+            rate=sampling_rate,
+            input=True,
+            frames_per_buffer=chunk_size
+        )
+        
+        print(f"Recording audio from microphone... (chunk duration: {chunk_duration}s)")
+        print("Press Ctrl+C to stop.")
+        
+        while True:
+            # Read audio chunk
+            audio_data = stream.read(chunk_size, exception_on_overflow=False)
+            
+            # Convert to numpy array
+            audio_array = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32)
+            
+            # Normalize to [-1, 1]
+            audio_array = audio_array / 32768.0
+            
+            # Perform ASR on chunk
+            transcription = _model(data=audio_array, sampling_rate=sampling_rate)
+            
+            if transcription.strip():  # Only yield non-empty transcriptions
+                yield transcription
+                
+    except KeyboardInterrupt:
+        print("\nStopping audio stream...")
+    finally:
+        # Clean up
+        if 'stream' in locals():
+            stream.stop_stream()
+            stream.close()
+        audio.terminate()

@@ -26,7 +26,16 @@ pip install pythaiasr[lm]
 pip install https://github.com/kpu/kenlm/archive/refs/heads/master.zip
 ```
 
+**For live audio streaming:**
+if you want to use live audio streaming from microphone/soundcard, you need to install PyAudio:
+
+```sh
+pip install pythaiasr[stream]
+```
+
 ## Usage
+
+### File-based ASR
 
 ```python
 from pythaiasr import asr
@@ -34,7 +43,22 @@ from pythaiasr import asr
 file = "a.wav"
 print(asr(file))
 ```
+
+### Live Audio Streaming
+
+Stream audio directly from your microphone/soundcard:
+
+```python
+from pythaiasr import stream_asr
+
+# Stream audio and print transcriptions in real-time
+for transcription in stream_asr(chunk_duration=5.0):
+    print(transcription)
+    # Press Ctrl+C to stop
+```
 ### API
+
+#### asr
 
 ```python
 asr(data: str, model: str = _model_name, lm: bool=False, device: str=None, sampling_rate: int=16_000)
@@ -46,6 +70,19 @@ asr(data: str, model: str = _model_name, lm: bool=False, device: str=None, sampl
 - device: device
 - sampling_rate: The sample rate
 - return: thai text from ASR
+
+#### stream_asr
+
+```python
+stream_asr(model: str = _model_name, lm: bool=False, device: str=None, chunk_duration: float=5.0, sampling_rate: int=16_000)
+```
+
+- model: The ASR model
+- lm: Use language model (except *airesearch/wav2vec2-large-xlsr-53-th* model)
+- device: device
+- chunk_duration: Duration of each audio chunk in seconds (default: 5.0)
+- sampling_rate: The sample rate (default: 16000)
+- yield: Thai text transcription from each audio chunk
 
 **Options for model**
 - *airesearch/wav2vec2-large-xlsr-53-th* (default) - AI RESEARCH - PyThaiNLP model
