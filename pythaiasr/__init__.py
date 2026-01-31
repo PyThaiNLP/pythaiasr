@@ -145,7 +145,7 @@ def asr(data: str, model: str = _model_name, lm: bool=False, device: str=None, s
         * *biodatlab/whisper-th-large-combined* - Thai Whisper large model
     """
     global _model, _model_name
-    if model!=_model or _model == None:
+    if model!=_model or _model is None:
         _model = ASR(model, lm=lm, device=device)
         _model_name = model
 
@@ -191,7 +191,7 @@ def stream_asr(model: str = _model_name, lm: bool=False, device: str=None,
         )
     
     global _model, _model_name
-    if model!=_model or _model == None:
+    if model!=_model or _model is None:
         _model = ASR(model, lm=lm, device=device)
         _model_name = model
     

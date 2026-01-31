@@ -27,7 +27,7 @@ pip install https://github.com/kpu/kenlm/archive/refs/heads/master.zip
 ```
 
 **For live audio streaming:**
-if you want to use live audio streaming from microphone/soundcard, you need to install PyAudio:
+If you want to use live audio streaming from microphone/soundcard, you need to install PyAudio:
 
 ```sh
 pip install pythaiasr[stream]
