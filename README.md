@@ -110,7 +110,7 @@ stream_asr(model: str = _model_name, lm: bool=False, device: str=None, chunk_dur
 
 - model: The ASR model (default: `typhoon_asr`)
 - lm: Use language model (for wav2vec2 models with LM)
-- device: device
+- device: device for running model
 - chunk_duration: Duration of each audio chunk in seconds (default: 0.48s for Typhoon, 5.0s for others)
 - sampling_rate: The sample rate (default: 16000)
 - yield: Thai text transcription from each audio chunk
