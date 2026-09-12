@@ -9,28 +9,48 @@ def read(*paths):
 
 
 requirements = [
-    'datasets',
-    'transformers<5.0',
-    'torchaudio',
+    'numpy',
     'soundfile',
-    'torch',
-    'numpy'
+    'onnxruntime>=1.16.0',
+    'requests',
 ]
 
 extras = {
-	"lm":[
+	"torch": [
+		"torch",
+		"torchaudio",
+		"transformers<5.0",
+		"datasets",
+	],
+	"transformers": [
+		"torch",
+		"torchaudio",
+		"transformers<5.0",
+		"datasets",
+	],
+	"lm": [
 		"pyctcdecode>=0.4.0",
 		# "kenlm @ https://github.com/kpu/kenlm/archive/refs/heads/master.zip"
 	],
-	"stream":[
-		"pyaudio>=0.2.11"
-	]
+	"stream": [
+		"pyaudio>=0.2.11",
+		"sounddevice>=0.4.6",
+	],
+	"all": [
+		"torch",
+		"torchaudio",
+		"transformers",
+		"datasets",
+		"pyctcdecode>=0.4.0",
+		"pyaudio>=0.2.11",
+		"sounddevice>=0.4.6",
+	],
 }
 
 
 setup(
 	name='pythaiasr',
-	version='1.3.0',
+	version='2.0.0',
 	packages=['pythaiasr'],
 	url='https://github.com/pythainlp/pythaiasr',
 	license='Apache Software License 2.0',

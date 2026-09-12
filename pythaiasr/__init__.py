@@ -1,52 +1,108 @@
 # -*- coding: utf-8 -*-
-import torch
-import torchaudio
-import numpy as np
+import os
+import sys
 import logging
-from transformers.utils import logging
-logging.set_verbosity(40)
-import numpy as np
+from typing import Optional, Union
+
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
+try:
+    import torch
+    import torchaudio
+except ImportError:
+    torch = None
+    torchaudio = None
+
+try:
+    from transformers.utils import logging as hf_logging
+    hf_logging.set_verbosity(40)
+except ImportError:
+    pass
+
+from pythaiasr.download import (
+    get_pythaiasr_path,
+    get_typhoon_model_files,
+    download_file,
+)
+from pythaiasr.typhoon import (
+    FastConformerRNNT,
+    RealtimeStreamASR,
+    StreamingTranscriber,
+    stream_from_mic,
+    stream_from_file,
+    list_audio_devices,
+    extract_features,
+    load_audio,
+)
+
+# Friendly alias
+TyphoonASR = FastConformerRNNT
 
 
 class ASR:
-    def __init__(self, model: str="airesearch/wav2vec2-large-xlsr-53-th", lm: bool=False, device: str=None) -> None:
+    def __init__(self, model: str="typhoon_asr", lm: bool=False, device: str=None) -> None:
         """
         :param str model: The ASR model name
         :param bool lm: Use language model (default is False and except *airesearch/wav2vec2-large-xlsr-53-th* model)
         :param str device: device
-
+        
         **Options for model**
-            * *airesearch/wav2vec2-large-xlsr-53-th* (default) - AI RESEARCH - PyThaiNLP model
-            * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) + language model 
-            * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) + language model 
-            * *biodatlab/whisper-small-th-combined* - Thai Whisper small model
-            * *biodatlab/whisper-th-medium-combined* - Thai Whisper medium model
-            * *biodatlab/whisper-th-large-combined* - Thai Whisper large model
+            * *typhoon_asr* / *typhoon-asr-realtime* (default) - Typhoon FastConformer RNN-T ONNX model (offline & realtime)
+            * *airesearch/wav2vec2-large-xlsr-53-th* - AI RESEARCH - PyThaiNLP model (requires pythaiasr[torch])
+            * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) + language model (requires pythaiasr[torch])
+            * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) + language model (requires pythaiasr[torch])
+            * *biodatlab/whisper-small-th-combined* - Thai Whisper small model (requires pythaiasr[torch])
+            * *biodatlab/whisper-th-medium-combined* - Thai Whisper medium model (requires pythaiasr[torch])
+            * *biodatlab/whisper-th-large-combined* - Thai Whisper large model (requires pythaiasr[torch])
         """
         self.model_name = model
-        self.support_model =[
+        self.support_model = [
             "airesearch/wav2vec2-large-xlsr-53-th",
             "wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm",
             "wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut",
             "biodatlab/whisper-small-th-combined",
             "biodatlab/whisper-th-medium-combined",
-            "biodatlab/whisper-th-large-combined"
+            "biodatlab/whisper-th-large-combined",
+            "typhoon_asr",
+            "typhoon-asr-realtime",
+            "wannaphong/asr_cat_model",
         ]
         self.whisper_models = [
             "biodatlab/whisper-small-th-combined",
             "biodatlab/whisper-th-medium-combined",
-            "biodatlab/whisper-th-large-combined"
+            "biodatlab/whisper-th-large-combined",
         ]
-        assert self.model_name in self.support_model
+        self.typhoon_models = [
+            "typhoon_asr",
+            "typhoon-asr-realtime",
+            "wannaphong/asr_cat_model",
+        ]
+        assert self.model_name in self.support_model, f"Model {self.model_name} is not in supported models: {self.support_model}"
         self.lm = lm
-        if device!=None:
+
+        self.is_typhoon = self.model_name in self.typhoon_models
+        self.is_whisper = self.model_name in self.whisper_models
+
+        if self.is_typhoon:
+            dev = device if device is not None else "auto"
+            self.model = FastConformerRNNT(device=dev)
+            self.device = dev
+            return
+
+        if torch is None or torchaudio is None:
+            raise ImportError(
+                f"torch and torchaudio are required for {self.model_name}. "
+                "Install them with: pip install pythaiasr[torch]"
+            )
+
+        if device is not None:
             self.device = torch.device(device)
         else:
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        
-        # Check if model is a Whisper model
-        self.is_whisper = self.model_name in self.whisper_models
-        
+
         if self.is_whisper:
             from transformers import WhisperProcessor, WhisperForConditionalGeneration
             self.processor = WhisperProcessor.from_pretrained(self.model_name)
@@ -61,29 +117,35 @@ class ASR:
             self.model = AutoModelForCTC.from_pretrained(self.model_name).to(self.device)
 
     def speech_file_to_array_fn(self, batch: dict) -> dict:
+        if torchaudio is None:
+            raise ImportError("torchaudio is required for audio loading. Install it with: pip install torchaudio")
         speech_array, sampling_rate = torchaudio.load(batch["path"])
         batch["speech"] = speech_array[0]
         batch["sampling_rate"] = sampling_rate
         return batch
 
     def resample(self, batch: dict) -> dict:
-        resampler=torchaudio.transforms.Resample(batch['sampling_rate'], 16_000)
+        if torchaudio is None:
+            raise ImportError("torchaudio is required for audio resampling. Install it with: pip install torchaudio")
+        resampler = torchaudio.transforms.Resample(batch['sampling_rate'], 16_000)
         batch["speech"] = resampler(batch["speech"]).numpy()
         batch["sampling_rate"] = 16_000
         return batch
 
     def prepare_dataset(self, batch: dict) -> dict:
-        # check that all files have the correct sampling rate
         batch["input_values"] = self.processor(batch["speech"], sampling_rate=batch["sampling_rate"]).input_values
         return batch
     
-    def __call__(self, data: str, sampling_rate: int=16_000) -> str:
+    def __call__(self, data: Union[str, np.ndarray], sampling_rate: int=16_000) -> str:
         """
-        :param str data: path of sound file or numpy array of the voice
+        :param Union[str, np.ndarray] data: path of sound file or numpy array of the voice
         :param int sampling_rate: The sample rate
         """
+        if self.is_typhoon:
+            return self.model.transcribe(data, sample_rate=sampling_rate)
+
         b = {}
-        if isinstance(data,np.ndarray):
+        if isinstance(data, np.ndarray):
             b["speech"] = data
             b["sampling_rate"] = sampling_rate
             _preprocessing = b
@@ -93,19 +155,15 @@ class ASR:
         
         if self.is_whisper:
             # Whisper model processing
-            # Resample if needed
             if b["sampling_rate"] != 16_000:
-                # Convert to tensor if needed
                 speech_tensor = b["speech"] if isinstance(b["speech"], torch.Tensor) else torch.tensor(b["speech"])
                 resampler = torchaudio.transforms.Resample(b['sampling_rate'], 16_000)
                 b["speech"] = resampler(speech_tensor).numpy()
                 b["sampling_rate"] = 16_000
             
-            # Process audio with Whisper processor
             input_features = self.processor(b["speech"], sampling_rate=16_000, return_tensors="pt").input_features
             input_features = input_features.to(self.device)
             
-            # Generate transcription
             predicted_ids = self.model.generate(input_features)
             txt = self.processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
         else:
@@ -122,30 +180,31 @@ class ASR:
                 txt = self.processor.decode(pred_ids)
         return txt
 
-_model_name = "airesearch/wav2vec2-large-xlsr-53-th"
+_model_name = "typhoon_asr"
 _model = None
 
 
-def asr(data: str, model: str = _model_name, lm: bool=False, device: str=None, sampling_rate: int=16_000) -> str:
+def asr(data: Union[str, np.ndarray], model: str = _model_name, lm: bool=False, device: str=None, sampling_rate: int=16_000) -> str:
     """
-    :param str data: path of sound file or numpy array of the voice
-    :param str model: The ASR model name
-    :param bool lm: Use language model (except *airesearch/wav2vec2-large-xlsr-53-th* model)
-    :param str device: device
+    :param Union[str, np.ndarray] data: path of sound file or numpy array of the voice
+    :param str model: The ASR model name (default: "typhoon_asr")
+    :param bool lm: Use language model (for wav2vec2 models with LM)
+    :param str device: device ("cpu", "cuda", "auto")
     :param int sampling_rate: The sample rate
     :return: Thai text from ASR
     :rtype: str
 
     **Options for model**
-        * *airesearch/wav2vec2-large-xlsr-53-th* (default) - AI RESEARCH - PyThaiNLP model
-        * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) (+ language model)
-        * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) (+ language model)
-        * *biodatlab/whisper-small-th-combined* - Thai Whisper small model
-        * *biodatlab/whisper-th-medium-combined* - Thai Whisper medium model
-        * *biodatlab/whisper-th-large-combined* - Thai Whisper large model
+        * *typhoon_asr* / *typhoon-asr-realtime* (default) - Typhoon FastConformer RNN-T ONNX model
+        * *airesearch/wav2vec2-large-xlsr-53-th* - AI RESEARCH - PyThaiNLP model (requires pythaiasr[torch])
+        * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) (+ language model, requires pythaiasr[torch])
+        * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) (+ language model, requires pythaiasr[torch])
+        * *biodatlab/whisper-small-th-combined* - Thai Whisper small model (requires pythaiasr[torch])
+        * *biodatlab/whisper-th-medium-combined* - Thai Whisper medium model (requires pythaiasr[torch])
+        * *biodatlab/whisper-th-large-combined* - Thai Whisper large model (requires pythaiasr[torch])
     """
     global _model, _model_name
-    if model!=_model or _model is None:
+    if model != _model_name or _model is None:
         _model = ASR(model, lm=lm, device=device)
         _model_name = model
 
@@ -153,32 +212,33 @@ def asr(data: str, model: str = _model_name, lm: bool=False, device: str=None, s
 
 
 def stream_asr(model: str = _model_name, lm: bool=False, device: str=None, 
-               chunk_duration: float=5.0, sampling_rate: int=16_000):
+               chunk_duration: float=None, sampling_rate: int=16_000):
     """
     Stream audio from microphone/soundcard and perform real-time ASR.
     
-    :param str model: The ASR model name
-    :param bool lm: Use language model (except *airesearch/wav2vec2-large-xlsr-53-th* model)
+    :param str model: The ASR model name (default: "typhoon_asr")
+    :param bool lm: Use language model (for wav2vec2 models with LM)
     :param str device: device
-    :param float chunk_duration: Duration of each audio chunk in seconds (default: 5.0)
+    :param float chunk_duration: Duration of each audio chunk in seconds (default: 0.48s for Typhoon, 5.0s for others)
     :param int sampling_rate: The sample rate (default: 16000)
     :yield: Thai text transcription from each audio chunk
     
     **Options for model**
-        * *airesearch/wav2vec2-large-xlsr-53-th* (default) - AI RESEARCH - PyThaiNLP model
-        * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) (+ language model)
-        * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) (+ language model)
-        * *biodatlab/whisper-small-th-combined* - Thai Whisper small model
-        * *biodatlab/whisper-th-medium-combined* - Thai Whisper medium model
-        * *biodatlab/whisper-th-large-combined* - Thai Whisper large model
+        * *typhoon_asr* / *typhoon-asr-realtime* (default) - Typhoon FastConformer RNN-T ONNX model (recommended for streaming)
+        * *airesearch/wav2vec2-large-xlsr-53-th* - AI RESEARCH - PyThaiNLP model (requires pythaiasr[torch])
+        * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) (+ language model, requires pythaiasr[torch])
+        * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) (+ language model, requires pythaiasr[torch])
+        * *biodatlab/whisper-small-th-combined* - Thai Whisper small model (requires pythaiasr[torch])
+        * *biodatlab/whisper-th-medium-combined* - Thai Whisper medium model (requires pythaiasr[torch])
+        * *biodatlab/whisper-th-large-combined* - Thai Whisper large model (requires pythaiasr[torch])
     
     **Example:**
         .. code-block:: python
         
             from pythaiasr import stream_asr
             
-            # Stream audio and print transcriptions
-            for transcription in stream_asr(chunk_duration=5.0):
+            # Stream audio with Typhoon ASR and print transcriptions
+            for transcription in stream_asr(model="typhoon_asr"):
                 print(transcription)
                 # Press Ctrl+C to stop
     """
@@ -191,10 +251,22 @@ def stream_asr(model: str = _model_name, lm: bool=False, device: str=None,
         )
     
     global _model, _model_name
-    if model!=_model or _model is None:
+    if model != _model_name or _model is None:
         _model = ASR(model, lm=lm, device=device)
         _model_name = model
     
+    if chunk_duration is None:
+        chunk_duration = 0.48 if _model.is_typhoon else 5.0
+
+    # If Typhoon model, use stateful RealtimeStreamASR
+    streamer = None
+    if _model.is_typhoon:
+        streamer = RealtimeStreamASR(
+            model=_model.model,
+            sample_rate=sampling_rate,
+            step_sec=chunk_duration,
+        )
+
     # Initialize PyAudio
     audio = pyaudio.PyAudio()
     
@@ -215,25 +287,25 @@ def stream_asr(model: str = _model_name, lm: bool=False, device: str=None,
         print("Press Ctrl+C to stop.")
         
         while True:
-            # Read audio chunk
             audio_data = stream.read(chunk_size, exception_on_overflow=False)
+            audio_array = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32768.0
             
-            # Convert to numpy array
-            audio_array = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32)
+            if streamer is not None:
+                transcription = streamer.process_chunk(audio_array)
+            else:
+                transcription = _model(data=audio_array, sampling_rate=sampling_rate)
             
-            # Normalize to [-1, 1]
-            audio_array = audio_array / 32768.0
-            
-            # Perform ASR on chunk
-            transcription = _model(data=audio_array, sampling_rate=sampling_rate)
-            
-            if transcription.strip():  # Only yield non-empty transcriptions
+            if transcription and transcription.strip():
                 yield transcription
                 
     except KeyboardInterrupt:
         print("\nStopping audio stream...")
     finally:
-        # Clean up
+        if streamer is not None:
+            trailing = streamer.flush()
+            if trailing and trailing.strip():
+                yield trailing
+
         if 'stream' in locals():
             stream.stop_stream()
             stream.close()
