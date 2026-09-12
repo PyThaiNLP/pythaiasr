@@ -70,6 +70,8 @@ for transcription in stream_asr():
     # Press Ctrl+C to stop
 ```
 
+And examples/stream_example.py
+
 ### Real-Time Streaming from File or Microphone
 
 ```python
