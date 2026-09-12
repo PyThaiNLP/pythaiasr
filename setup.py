@@ -4,33 +4,52 @@ from setuptools import setup
 
 
 def read(*paths):
-    with open(os.path.join(*paths), 'r') as f:
+    with open(os.path.join(os.path.dirname(__file__), *paths), "r", encoding="utf-8") as f:
         return f.read()
 
 
 requirements = [
-    'datasets',
-    'transformers<5.0',
-    'torchaudio',
-    'soundfile',
-    'torch',
-    'numpy'
+    line.strip()
+    for line in read("requirements.txt").splitlines()
+    if line.strip() and not line.startswith("#")
 ]
 
 extras = {
-	"lm":[
+	"torch": [
+		"torch",
+		"torchaudio",
+		"transformers<5.0",
+		"datasets",
+	],
+	"transformers": [
+		"torch",
+		"torchaudio",
+		"transformers<5.0",
+		"datasets",
+	],
+	"lm": [
 		"pyctcdecode>=0.4.0",
 		# "kenlm @ https://github.com/kpu/kenlm/archive/refs/heads/master.zip"
 	],
-	"stream":[
-		"pyaudio>=0.2.11"
-	]
+	"stream": [
+		"pyaudio>=0.2.11",
+		"sounddevice>=0.4.6",
+	],
+	"all": [
+		"torch",
+		"torchaudio",
+		"transformers",
+		"datasets",
+		"pyctcdecode>=0.4.0",
+		"pyaudio>=0.2.11",
+		"sounddevice>=0.4.6",
+	],
 }
 
 
 setup(
 	name='pythaiasr',
-	version='1.3.0',
+	version='2.0.0',
 	packages=['pythaiasr'],
 	url='https://github.com/pythainlp/pythaiasr',
 	license='Apache Software License 2.0',

@@ -1,0 +1,5 @@
+numpy
+soundfile
+onnxruntime>=1.16.0
+requests
+
