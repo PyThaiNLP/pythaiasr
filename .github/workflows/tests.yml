@@ -12,6 +12,9 @@ on:
       - '**.yml'
       - 'docs/**'
 
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
