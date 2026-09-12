@@ -68,7 +68,7 @@ class ASR:
             "biodatlab/whisper-th-large-combined",
             "typhoon_asr",
             "typhoon-asr-realtime",
-            "wannaphong/asr_cat_model",
+            "wannaphong/typhoon-asr-realtime-onnx",
         ]
         self.whisper_models = [
             "biodatlab/whisper-small-th-combined",
@@ -78,7 +78,7 @@ class ASR:
         self.typhoon_models = [
             "typhoon_asr",
             "typhoon-asr-realtime",
-            "wannaphong/asr_cat_model",
+            "wannaphong/typhoon-asr-realtime-onnx",
         ]
         assert self.model_name in self.support_model, f"Model {self.model_name} is not in supported models: {self.support_model}"
         self.lm = lm

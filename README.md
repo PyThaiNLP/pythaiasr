@@ -126,7 +126,7 @@ stream_asr(model: str = _model_name, lm: bool=False, device: str=None, chunk_dur
 
 You can read about models from the list:
 
-- [*typhoon-ai/typhoon-asr-realtime* / *wannaphong/asr_cat_model* - Typhoon FastConformer RNN-T ONNX model](https://huggingface.co/wannaphong/asr_cat_model)
+- [*typhoon-ai/typhoon-asr-realtime* / *wannaphong/typhoon-asr-realtime-onnx* - Typhoon FastConformer RNN-T ONNX model](https://huggingface.co/wannaphong/typhoon-asr-realtime-onnx)
 - [*airesearch/wav2vec2-large-xlsr-53-th* - AI RESEARCH - PyThaiNLP model](https://medium.com/airesearch-in-th/airesearch-in-th-3c1019a99cd)
 - [*annaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) + language model](https://huggingface.co/wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm) 
 - [*wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) + language model](https://huggingface.co/wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut)

@@ -7,10 +7,10 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 DEFAULT_MODEL_URLS = {
-    "encoder": "https://huggingface.co/wannaphong/asr_cat_model/resolve/main/encoder-fastconformer-quran-ar.onnx",
-    "decoder": "https://huggingface.co/wannaphong/asr_cat_model/resolve/main/decoder_joint-fastconformer-quran-ar.onnx",
-    "vocab": "https://huggingface.co/wannaphong/asr_cat_model/resolve/main/tokenizer/vocab.json",
-    "metadata": "https://huggingface.co/wannaphong/asr_cat_model/resolve/main/export_metadata.json",
+    "encoder": "https://huggingface.co/wannaphong/typhoon-asr-realtime-onnx/resolve/main/encoder-fastconformer-quran-ar.onnx",
+    "decoder": "https://huggingface.co/wannaphong/typhoon-asr-realtime-onnx/resolve/main/decoder_joint-fastconformer-quran-ar.onnx",
+    "vocab": "https://huggingface.co/wannaphong/typhoon-asr-realtime-onnx/resolve/main/tokenizer/vocab.json",
+    "metadata": "https://huggingface.co/wannaphong/typhoon-asr-realtime-onnx/resolve/main/export_metadata.json",
 }
 
 DEFAULT_FILENAMES = {

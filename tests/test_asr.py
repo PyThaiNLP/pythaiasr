@@ -135,11 +135,11 @@ class TestKhaveePackage(unittest.TestCase):
             "biodatlab/whisper-th-large-combined",
             "typhoon_asr",
             "typhoon-asr-realtime",
-            "wannaphong/asr_cat_model",
+            "wannaphong/typhoon-asr-realtime-onnx",
         ]
         self.assertIn("typhoon_asr", asr_obj.support_model)
         self.assertIn("typhoon-asr-realtime", asr_obj.support_model)
-        self.assertIn("wannaphong/asr_cat_model", asr_obj.support_model)
+        self.assertIn("wannaphong/typhoon-asr-realtime-onnx", asr_obj.support_model)
 
     def test_typhoon_feature_extraction(self):
         """Test Slaney mel filterbank and feature extraction on numpy arrays."""
