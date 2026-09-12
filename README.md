@@ -8,9 +8,7 @@ PyThaiASR is a Python package for Automatic Speech Recognition with focus on Tha
 
 License: [Apache-2.0 License](https://github.com/PyThaiNLP/pythaiasr/blob/main/LICENSE)
 
-Google Colab: [Link Google colab](https://colab.research.google.com/drive/1zHt3GoxXWCaNSMRzE5lrvpYm9RolcxOW?usp=sharing)
-
-Model homepage: https://huggingface.co/airesearch/wav2vec2-large-xlsr-53-th
+Google Colab: [Link Google colab](https://colab.research.google.com/github/PyThaiNLP/pythaiasr/blob/main/examples/pythaiasr-colab.ipynb)
 
 ## Install
 

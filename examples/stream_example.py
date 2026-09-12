@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Example: Live Audio Streaming with PyThaiASR
+Example: Live Audio Streaming with PyThaiASR (Typhoon ASR)
 
 This example demonstrates how to use the stream_asr function to 
-perform real-time speech recognition from microphone input.
+perform real-time speech recognition from microphone input using 
+Typhoon FastConformer RNN-T ONNX.
 
 Requirements:
     pip install pythaiasr[stream]
@@ -15,6 +16,12 @@ Usage:
 Press Ctrl+C to stop recording.
 """
 
+import os
+import sys
+
+# Ensure pythaiasr package in current repo can be imported directly
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from pythaiasr import stream_asr
 
 def main():
@@ -22,19 +29,18 @@ def main():
     Stream audio from microphone and print Thai transcriptions in real-time.
     """
     print("=" * 60)
-    print("Live Audio Streaming Example")
+    print("Live Audio Streaming Example (Typhoon ASR)")
     print("=" * 60)
     print()
     
     try:
-        # Stream audio with 5-second chunks
+        # Stream audio with Typhoon ASR (chunk duration: 0.48s)
         for transcription in stream_asr(
-            model="airesearch/wav2vec2-large-xlsr-53-th",
-            chunk_duration=5.0,
-            device="cpu"  # Use "cuda" if you have GPU
+            model="typhoon_asr",
+            chunk_duration=0.48,
+            device="auto"  # "auto", "cpu", or "cuda"
         ):
-            print(f"Transcription: {transcription}")
-            print("-" * 60)
+            print(transcription, end=" ", flush=True)
             
     except ImportError as e:
         print(f"Error: {e}")
@@ -49,3 +55,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
