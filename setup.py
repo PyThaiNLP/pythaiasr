@@ -49,7 +49,7 @@ extras = {
 
 setup(
 	name='pythaiasr',
-	version='2.0.0',
+	version='2.0.0-beta1',
 	packages=['pythaiasr'],
 	url='https://github.com/pythainlp/pythaiasr',
 	license='Apache Software License 2.0',
