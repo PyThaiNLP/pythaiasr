@@ -4,15 +4,14 @@ from setuptools import setup
 
 
 def read(*paths):
-    with open(os.path.join(*paths), 'r') as f:
+    with open(os.path.join(os.path.dirname(__file__), *paths), "r", encoding="utf-8") as f:
         return f.read()
 
 
 requirements = [
-    'numpy',
-    'soundfile',
-    'onnxruntime>=1.16.0',
-    'requests',
+    line.strip()
+    for line in read("requirements.txt").splitlines()
+    if line.strip() and not line.startswith("#")
 ]
 
 extras = {
