@@ -453,8 +453,164 @@ class FastConformerRNNT:
 
         return results
 
-    def transcribe(self, audio_input: Union[str, Path, np.ndarray], sample_rate: int = 16000) -> str:
-        """Transcribe an audio file or audio array to Thai text."""
+    def tokens_to_timestamp_chunks(
+        self,
+        emitted_tokens: List[int],
+        token_timestamps: List[int],
+        sample_rate: int = 16000,
+        mode: Union[bool, str] = True,
+    ) -> List[dict]:
+        """Convert emitted tokens and their frame timestamps into timestamped chunks.
+
+        :param emitted_tokens: List of emitted vocabulary token IDs.
+        :param token_timestamps: List of encoder frame indices for each token.
+        :param sample_rate: Audio sampling rate in Hz (default: 16000).
+        :param mode: True, "word" for word/segment chunks, or "char"/"token" for character-level chunks.
+        :return: List of chunk dictionaries containing text, timestamp tuple, start, and end in seconds.
+        """
+        if not emitted_tokens or not token_timestamps:
+            return []
+
+        # 1280 audio samples per encoder frame (hop_length=160, 8x FastConformer subsampling)
+        frame_duration = 1280.0 / float(sample_rate)
+        special_tokens = {"<unk>", "<s>", "</s>", "<pad>", "<bos>", "<eos>"}
+
+        items = []
+        for tid, t in zip(emitted_tokens, token_timestamps):
+            if 0 <= tid < len(self.vocab):
+                tok_str = self.vocab[tid]
+                if tok_str in special_tokens:
+                    continue
+                items.append((tok_str, t))
+
+        if not items:
+            return []
+
+        # Character / token level
+        if mode in ("char", "token"):
+            char_chunks = []
+            for tok_str, t in items:
+                piece = tok_str.replace("\u2581", " ").strip()
+                if not piece:
+                    continue
+                s_time = round(t * frame_duration, 2)
+                e_time = round((t + 1) * frame_duration, 2)
+                char_chunks.append({
+                    "text": piece,
+                    "timestamp": (s_time, e_time),
+                    "start": s_time,
+                    "end": e_time,
+                })
+            return char_chunks
+
+        full_text = self.decode_token_ids(emitted_tokens)
+
+        # Word level with PyThaiNLP if requested and available
+        if mode == "word":
+            try:
+                from pythainlp.tokenize import word_tokenize
+                words = [w for w in word_tokenize(full_text, engine="newmm") if w.strip()]
+                if len(words) > 1:
+                    char_times = []
+                    for tok_str, t in items:
+                        cleaned = tok_str.replace("\u2581", " ")
+                        for ch in cleaned:
+                            char_times.append((ch, t))
+
+                    word_chunks = []
+                    idx = 0
+                    for word in words:
+                        while idx < len(char_times) and char_times[idx][0].isspace():
+                            idx += 1
+                        if idx >= len(char_times):
+                            break
+                        word_chars = [ch for ch in word if not ch.isspace()]
+                        matched_ts = []
+                        for w_ch in word_chars:
+                            while idx < len(char_times) and char_times[idx][0] != w_ch:
+                                idx += 1
+                            if idx < len(char_times) and char_times[idx][0] == w_ch:
+                                matched_ts.append(char_times[idx][1])
+                                idx += 1
+                        if matched_ts:
+                            w_start = round(min(matched_ts) * frame_duration, 2)
+                            w_end = round((max(matched_ts) + 1) * frame_duration, 2)
+                            word_chunks.append({
+                                "text": word,
+                                "timestamp": (w_start, w_end),
+                                "start": w_start,
+                                "end": w_end,
+                            })
+                    if word_chunks:
+                        return word_chunks
+            except ImportError:
+                pass
+
+        # Standard segment/word chunking (based on SentencePiece space tokens and pause detection)
+        chunks = []
+        curr_tokens = []
+        curr_start_t = None
+        curr_end_t = None
+
+        for tok_str, t in items:
+            is_new = False
+            if curr_start_t is None:
+                is_new = True
+            elif tok_str.startswith("\u2581") or tok_str.startswith(" "):
+                is_new = True
+            elif curr_end_t is not None and (t - curr_end_t) >= 6:  # Pause >= 0.48s
+                is_new = True
+
+            if is_new and curr_tokens:
+                chunk_text = "".join(curr_tokens).replace("\u2581", " ").strip()
+                if chunk_text:
+                    s_time = round(curr_start_t * frame_duration, 2)
+                    e_time = round((curr_end_t + 1) * frame_duration, 2)
+                    chunks.append({
+                        "text": chunk_text,
+                        "timestamp": (s_time, e_time),
+                        "start": s_time,
+                        "end": e_time,
+                    })
+                curr_tokens = []
+                curr_start_t = t
+
+            if curr_start_t is None:
+                curr_start_t = t
+            curr_tokens.append(tok_str)
+            curr_end_t = t
+
+        if curr_tokens:
+            chunk_text = "".join(curr_tokens).replace("\u2581", " ").strip()
+            if chunk_text:
+                s_time = round(curr_start_t * frame_duration, 2)
+                e_time = round((curr_end_t + 1) * frame_duration, 2)
+                chunks.append({
+                    "text": chunk_text,
+                    "timestamp": (s_time, e_time),
+                    "start": s_time,
+                    "end": e_time,
+                })
+
+        return chunks
+
+    def transcribe(
+        self,
+        audio_input: Union[str, Path, np.ndarray],
+        sample_rate: int = 16000,
+        return_timestamps: Optional[Union[bool, str]] = None,
+        timestamps: Optional[Union[bool, str]] = None,
+    ) -> Union[str, dict]:
+        """Transcribe an audio file or audio array to Thai text.
+
+        :param audio_input: Path to audio file or float32 numpy audio array.
+        :param int sample_rate: Sample rate of the audio (default: 16000).
+        :param Optional[Union[bool, str]] return_timestamps: If True, returns a dictionary with
+            text, chunks, and timestamps. Also accepts "word" or "char".
+        :param Optional[Union[bool, str]] timestamps: Alias for return_timestamps.
+        :return: Thai text string (default) or dictionary with timestamps.
+        """
+        use_timestamps = return_timestamps if return_timestamps is not None else timestamps
         if isinstance(audio_input, (str, Path)):
             audio = load_audio(audio_input, target_sr=sample_rate)
         else:
@@ -471,7 +627,23 @@ class FastConformerRNNT:
         )
 
         results = self.greedy_decode(encoder_outputs, encoded_lengths)
-        return results[0]["text"]
+        result = results[0]
+        text = result["text"]
+
+        if use_timestamps:
+            chunks = self.tokens_to_timestamp_chunks(
+                emitted_tokens=result.get("tokens", []),
+                token_timestamps=result.get("timestamps", []),
+                sample_rate=sample_rate,
+                mode=use_timestamps,
+            )
+            return {
+                "text": text,
+                "chunks": chunks,
+                "timestamps": chunks,
+            }
+
+        return text
 
     def create_streaming_session(
         self,
