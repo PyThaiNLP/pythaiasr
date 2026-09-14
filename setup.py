@@ -35,6 +35,9 @@ extras = {
 		"pyaudio>=0.2.11",
 		"sounddevice>=0.4.6",
 	],
+	"diarize": [
+		"sherpa-onnx",
+	],
 	"all": [
 		"torch",
 		"torchaudio",
@@ -43,6 +46,7 @@ extras = {
 		"pyctcdecode>=0.4.0",
 		"pyaudio>=0.2.11",
 		"sounddevice>=0.4.6",
+		"sherpa-onnx",
 	],
 }
 

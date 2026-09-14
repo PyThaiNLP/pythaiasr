@@ -25,6 +25,7 @@ except ImportError:
 from pythaiasr.download import (
     get_pythaiasr_path,
     get_typhoon_model_files,
+    get_diarization_model_files,
     download_file,
 )
 from pythaiasr.typhoon import (
@@ -36,6 +37,12 @@ from pythaiasr.typhoon import (
     list_audio_devices,
     extract_features,
     load_audio,
+)
+from pythaiasr.diarization import (
+    Diarization,
+    diarize,
+    asr_diarize,
+    merge_same_speaker_segments,
 )
 
 # Friendly alias
@@ -310,3 +317,27 @@ def stream_asr(model: str = _model_name, lm: bool=False, device: str=None,
             stream.stop_stream()
             stream.close()
         audio.terminate()
+
+
+__all__ = [
+    "ASR",
+    "asr",
+    "stream_asr",
+    "Diarization",
+    "diarize",
+    "asr_diarize",
+    "merge_same_speaker_segments",
+    "FastConformerRNNT",
+    "TyphoonASR",
+    "RealtimeStreamASR",
+    "StreamingTranscriber",
+    "stream_from_mic",
+    "stream_from_file",
+    "list_audio_devices",
+    "extract_features",
+    "load_audio",
+    "get_pythaiasr_path",
+    "get_typhoon_model_files",
+    "get_diarization_model_files",
+    "download_file",
+]

@@ -20,6 +20,14 @@ DEFAULT_FILENAMES = {
     "metadata": "export_metadata.json",
 }
 
+DEFAULT_DIARIZATION_URLS = {
+    "segmentation": "https://huggingface.co/onnx-community/pyannote-segmentation-3.0/resolve/main/onnx/model.onnx",
+}
+
+DEFAULT_DIARIZATION_FILENAMES = {
+    "segmentation": "segmentation-3.0.onnx",
+}
+
 
 def get_pythaiasr_path() -> str:
     """
@@ -175,3 +183,60 @@ def get_typhoon_model_files(
         download_file(urls["vocab"], vocab_path)
 
     return encoder_path, decoder_path, vocab_path
+
+
+def get_diarization_model_files(
+    model_dir: Optional[str] = None,
+    urls: Optional[Dict[str, str]] = None,
+) -> str:
+    """
+    Ensure ONNX diarization segmentation model is present.
+    Downloads to `~/pythaiasr-data/diarization/` if missing.
+
+    :param model_dir: Custom directory to store or load model files.
+    :param urls: Custom dictionary with URLs for 'segmentation'.
+    :return: Path to segmentation model file.
+    """
+    if model_dir is None:
+        root_data = get_pythaiasr_path()
+        model_dir = os.path.join(root_data, "diarization")
+    else:
+        model_dir = os.path.abspath(os.path.expanduser(model_dir))
+
+    try:
+        os.makedirs(model_dir, exist_ok=True)
+    except OSError:
+        pass
+
+    urls = urls or DEFAULT_DIARIZATION_URLS
+    seg_filename = DEFAULT_DIARIZATION_FILENAMES["segmentation"]
+    seg_path = os.path.join(model_dir, seg_filename)
+
+    # Check local candidate paths if not present
+    if not os.path.exists(seg_path):
+        local_candidates = [
+            os.path.abspath("diarization"),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "diarization")),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "models")),
+        ]
+        for candidate in local_candidates:
+            cand_seg = os.path.join(candidate, seg_filename)
+            if os.path.exists(cand_seg):
+                try:
+                    os.makedirs(model_dir, exist_ok=True)
+                    if not os.path.exists(seg_path):
+                        shutil.copy2(cand_seg, seg_path)
+                except OSError:
+                    return cand_seg
+                break
+
+    # Download missing files
+    try:
+        os.makedirs(model_dir, exist_ok=True)
+    except OSError:
+        pass
+
+    if not os.path.exists(seg_path):
+        download_file(urls["segmentation"], seg_path)
+
+    return seg_path
