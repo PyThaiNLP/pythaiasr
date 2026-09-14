@@ -27,7 +27,7 @@ def main():
     print("1. Typhoon Offline ASR")
     print("=" * 60)
     if os.path.exists(test_audio):
-        text = asr(test_audio, model="typhoon_asr", device="auto")
+        text = asr(test_audio, model="typhoon_asr", device="auto", timestamps=True)
         print("Transcription:", text)
     else:
         print(f"Audio file {test_audio} not found. Pass an audio path to asr().")
