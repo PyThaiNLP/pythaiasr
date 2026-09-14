@@ -52,9 +52,16 @@ file = "sample.wav"
 # Uses Typhoon ASR (FastConformer RNN-T ONNX) by default
 print(asr(file))
 
+# With timestamps (returns dictionary with 'text', 'chunks', and 'timestamps')
+result = asr(file, return_timestamps=True)
+print(result["text"])
+for chunk in result["chunks"]:
+    print(f"[{chunk['start']:.2f}s -> {chunk['end']:.2f}s] {chunk['text']}")
+
 # Or explicitly select another model (requires pythaiasr[torch])
 # print(asr(file, model="airesearch/wav2vec2-large-xlsr-53-th"))
 # print(asr(file, model="biodatlab/whisper-small-th-combined"))
+# print(asr(file, model="biodatlab/whisper-th-medium-timestamp", return_timestamps=True))
 ```
 
 ### Live Audio Streaming
@@ -92,7 +99,15 @@ stream_from_file(streamer, "sample.wav")
 #### asr
 
 ```python
-asr(data: str, model: str = _model_name, lm: bool=False, device: str=None, sampling_rate: int=16_000)
+asr(
+    data: Union[str, np.ndarray],
+    model: str = _model_name,
+    lm: bool = False,
+    device: str = None,
+    sampling_rate: int = 16_000,
+    return_timestamps: Optional[Union[bool, str]] = None,
+    timestamps: Optional[Union[bool, str]] = None,
+)
 ```
 
 - data: path of sound file or numpy array of the voice
@@ -100,12 +115,22 @@ asr(data: str, model: str = _model_name, lm: bool=False, device: str=None, sampl
 - lm: Use language model (for wav2vec2 models with LM)
 - device: device (`auto`, `cpu`, `cuda`)
 - sampling_rate: The sample rate
-- return: thai text from ASR
+- return_timestamps: Return timestamps dictionary (`True`, `"word"`, or `"char"`)
+- timestamps: Alias for `return_timestamps`
+- return: Thai text from ASR (`str`) or dictionary with `"text"`, `"chunks"`, and `"timestamps"` if `return_timestamps=True`
 
 #### stream_asr
 
 ```python
-stream_asr(model: str = _model_name, lm: bool=False, device: str=None, chunk_duration: float=None, sampling_rate: int=16_000)
+stream_asr(
+    model: str = _model_name,
+    lm: bool = False,
+    device: str = None,
+    chunk_duration: float = None,
+    sampling_rate: int = 16_000,
+    return_timestamps: bool = False,
+    timestamps: Optional[bool] = None,
+)
 ```
 
 - model: The ASR model (default: `typhoon_asr`)
@@ -113,7 +138,9 @@ stream_asr(model: str = _model_name, lm: bool=False, device: str=None, chunk_dur
 - device: device for running model
 - chunk_duration: Duration of each audio chunk in seconds (default: 0.48s for Typhoon, 5.0s for others)
 - sampling_rate: The sample rate (default: 16000)
-- yield: Thai text transcription from each audio chunk
+- return_timestamps: Yield dictionary with text and chunk timestamps (`True` or `False`)
+- timestamps: Alias for `return_timestamps`
+- yield: Thai text transcription (or dict with timestamp) from each audio chunk
 
 **Options for model**
 - *typhoon_asr* / *typhoon-asr-realtime* (default) - Typhoon FastConformer RNN-T ONNX model (offline & realtime)
@@ -123,6 +150,7 @@ stream_asr(model: str = _model_name, lm: bool=False, device: str=None, chunk_dur
 - *biodatlab/whisper-small-th-combined* - Thai Whisper small model (requires pythaiasr[torch])
 - *biodatlab/whisper-th-medium-combined* - Thai Whisper medium model (requires pythaiasr[torch])
 - *biodatlab/whisper-th-large-combined* - Thai Whisper large model (requires pythaiasr[torch])
+- *biodatlab/whisper-th-medium-timestamp* - Thai Whisper medium model with timestamp support (requires pythaiasr[torch])
 
 You can read about models from the list:
 
@@ -133,6 +161,7 @@ You can read about models from the list:
 - [*biodatlab/whisper-small-th-combined* - Thai Whisper small model](https://huggingface.co/biodatlab/whisper-small-th-combined)
 - [*biodatlab/whisper-th-medium-combined* - Thai Whisper medium model](https://huggingface.co/biodatlab/whisper-th-medium-combined)
 - [*biodatlab/whisper-th-large-combined* - Thai Whisper large model](https://huggingface.co/biodatlab/whisper-th-large-combined)
+- [*biodatlab/whisper-th-medium-timestamp* - Thai Whisper medium model with timestamp support](https://huggingface.co/biodatlab/whisper-th-medium-timestamp)
 
 ### Docker
 To use this inside of Docker do the following:
