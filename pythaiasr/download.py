@@ -28,6 +28,20 @@ DEFAULT_DIARIZATION_FILENAMES = {
     "segmentation": "segmentation-3.0.onnx",
 }
 
+DEFAULT_NEMOTRON_DIARIZATION_URLS = {
+    "preprocessor": "https://huggingface.co/joosthel/Nemotron-3-Diarization-ONNX/resolve/main/preprocessor_core.onnx",
+    "model_int8": "https://huggingface.co/joosthel/Nemotron-3-Diarization-ONNX/resolve/main/model.int8.onnx",
+    "model_fp32": "https://huggingface.co/joosthel/Nemotron-3-Diarization-ONNX/resolve/main/model.onnx",
+    "constants": "https://huggingface.co/joosthel/Nemotron-3-Diarization-ONNX/resolve/main/constants.npz",
+}
+
+DEFAULT_NEMOTRON_DIARIZATION_FILENAMES = {
+    "preprocessor": "preprocessor_core.onnx",
+    "model_int8": "model.int8.onnx",
+    "model_fp32": "model.onnx",
+    "constants": "constants.npz",
+}
+
 
 def get_pythaiasr_path() -> str:
     """
@@ -240,3 +254,86 @@ def get_diarization_model_files(
         download_file(urls["segmentation"], seg_path)
 
     return seg_path
+
+
+def get_nemotron_diarization_model_files(
+    model_dir: Optional[str] = None,
+    urls: Optional[Dict[str, str]] = None,
+    precision: str = "int8",
+) -> Tuple[str, str, str]:
+    """
+    Ensure Nemotron-3 Diarization ONNX model files are present.
+    Downloads to `~/pythaiasr-data/nemotron-3-diarization-onnx/` if missing.
+
+    :param model_dir: Custom directory to store or load model files.
+    :param urls: Custom dictionary with URLs for 'preprocessor', 'model_int8', 'model_fp32', 'constants'.
+    :param precision: Model precision: 'int8' (default, ~104 MB) or 'fp32' (~397 MB).
+    :return: Tuple of (preprocessor_path, model_path, constants_path).
+    """
+    if model_dir is None:
+        root_data = get_pythaiasr_path()
+        model_dir = os.path.join(root_data, "nemotron-3-diarization-onnx")
+    else:
+        model_dir = os.path.abspath(os.path.expanduser(model_dir))
+
+    try:
+        os.makedirs(model_dir, exist_ok=True)
+    except OSError:
+        pass
+
+    urls = urls or DEFAULT_NEMOTRON_DIARIZATION_URLS
+    model_key = "model_fp32" if precision == "fp32" else "model_int8"
+    model_filename = DEFAULT_NEMOTRON_DIARIZATION_FILENAMES[model_key]
+    prep_filename = DEFAULT_NEMOTRON_DIARIZATION_FILENAMES["preprocessor"]
+    const_filename = DEFAULT_NEMOTRON_DIARIZATION_FILENAMES["constants"]
+
+    prep_path = os.path.join(model_dir, prep_filename)
+    model_path = os.path.join(model_dir, model_filename)
+    const_path = os.path.join(model_dir, const_filename)
+
+    # Check if files exist in target model_dir
+    if os.path.exists(prep_path) and os.path.exists(model_path) and os.path.exists(const_path):
+        return prep_path, model_path, const_path
+
+    # Check local candidate paths
+    local_candidates = [
+        os.path.abspath("nemotron_diarization"),
+        os.path.abspath("nemotron-3-diarization-onnx"),
+        os.path.abspath("Nemotron-3-Diarization-ONNX"),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "nemotron_diarization")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "nemotron-3-diarization-onnx")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "Nemotron-3-Diarization-ONNX")),
+    ]
+
+    for candidate in local_candidates:
+        if os.path.isdir(candidate):
+            cand_prep = os.path.join(candidate, prep_filename)
+            cand_model = os.path.join(candidate, model_filename)
+            cand_const = os.path.join(candidate, const_filename)
+            if os.path.exists(cand_prep) and os.path.exists(cand_model) and os.path.exists(cand_const):
+                try:
+                    os.makedirs(model_dir, exist_ok=True)
+                    if not os.path.exists(prep_path):
+                        shutil.copy2(cand_prep, prep_path)
+                    if not os.path.exists(model_path):
+                        shutil.copy2(cand_model, model_path)
+                    if not os.path.exists(const_path):
+                        shutil.copy2(cand_const, const_path)
+                except OSError:
+                    return cand_prep, cand_model, cand_const
+                return prep_path, model_path, const_path
+
+    # Download missing files
+    try:
+        os.makedirs(model_dir, exist_ok=True)
+    except OSError:
+        pass
+
+    if not os.path.exists(prep_path):
+        download_file(urls["preprocessor"], prep_path)
+    if not os.path.exists(model_path):
+        download_file(urls[model_key], model_path)
+    if not os.path.exists(const_path):
+        download_file(urls["constants"], const_path)
+
+    return prep_path, model_path, const_path
