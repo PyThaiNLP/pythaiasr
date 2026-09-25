@@ -99,8 +99,7 @@ class TestKhaveePackage(unittest.TestCase):
     def test_stream_asr_without_pyaudio(self):
         """Test that stream_asr raises ImportError when pyaudio is not available"""
         pyaudio_backup = sys.modules.get('pyaudio')
-        if 'pyaudio' in sys.modules:
-            del sys.modules['pyaudio']
+        sys.modules['pyaudio'] = None
         
         try:
             gen = stream_asr(device="cpu")
@@ -112,6 +111,8 @@ class TestKhaveePackage(unittest.TestCase):
         finally:
             if pyaudio_backup is not None:
                 sys.modules['pyaudio'] = pyaudio_backup
+            else:
+                sys.modules.pop('pyaudio', None)
 
     def test_typhoon_path_resolution(self):
         """Test root user path defaults to ~/pythaiasr-data and respects env var."""

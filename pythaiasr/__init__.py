@@ -26,6 +26,7 @@ from pythaiasr.download import (
     get_pythaiasr_path,
     get_typhoon_model_files,
     get_diarization_model_files,
+    get_nemotron_diarization_model_files,
     download_file,
 )
 from pythaiasr.typhoon import (
@@ -40,9 +41,13 @@ from pythaiasr.typhoon import (
 )
 from pythaiasr.diarization import (
     Diarization,
+    NemotronDiarization,
+    Nemotron3Diarization,
     diarize,
     asr_diarize,
     merge_same_speaker_segments,
+    segments_to_rttm,
+    extract_speaker_dict,
 )
 
 # Friendly alias
@@ -495,9 +500,13 @@ __all__ = [
     "asr",
     "stream_asr",
     "Diarization",
+    "NemotronDiarization",
+    "Nemotron3Diarization",
     "diarize",
     "asr_diarize",
     "merge_same_speaker_segments",
+    "segments_to_rttm",
+    "extract_speaker_dict",
     "FastConformerRNNT",
     "TyphoonASR",
     "RealtimeStreamASR",
@@ -510,5 +519,6 @@ __all__ = [
     "get_pythaiasr_path",
     "get_typhoon_model_files",
     "get_diarization_model_files",
+    "get_nemotron_diarization_model_files",
     "download_file",
 ]

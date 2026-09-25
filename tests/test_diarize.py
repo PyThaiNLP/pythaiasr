@@ -8,20 +8,30 @@ import numpy as np
 
 from pythaiasr import (
     Diarization,
+    NemotronDiarization,
+    Nemotron3Diarization,
     diarize,
     asr_diarize,
     merge_same_speaker_segments,
+    segments_to_rttm,
+    extract_speaker_dict,
     get_diarization_model_files,
+    get_nemotron_diarization_model_files,
 )
 from pythaiasr.diarization import (
     _powerset_to_multilabel,
     _binarize_timeline,
+    _sigmoid,
+    _stable_topk_indices,
+    NumpySpeakerCache,
     _SAMPLE_RATE,
     _STEP_SAMPLES,
     _OFFSET_SAMPLES,
+    NEMOTRON_FRAME_DURATION,
 )
 
 TEST_WAV_FILE = os.path.join(".", "tests", "test.wav")
+TEST_DIARIZE_FILE = os.path.join(".", "tests", "test-diarize.wav")
 COMMON_VOICE_FILE = os.path.join(".", "tests", "common_voice_th_25686161.wav")
 
 
@@ -144,7 +154,7 @@ class TestDiarizationModule(unittest.TestCase):
 
         with patch.object(Diarization, "_init_session", return_value=mock_session):
             with patch("pythaiasr.diarization.get_diarization_model_files", return_value="dummy_path.onnx"):
-                diarizer = Diarization()
+                diarizer = Diarization(model="pyannote_segmentation")
 
                 # 1. Short audio (3 seconds = 48,000 samples)
                 short_audio = np.random.randn(48000).astype(np.float32)
@@ -225,11 +235,11 @@ class TestDiarizationModule(unittest.TestCase):
         mock_session = MagicMock()
         with patch.object(Diarization, "_init_session", return_value=mock_session):
             with patch("pythaiasr.diarization.get_diarization_model_files", return_value="dummy.onnx"):
-                diarizer = Diarization()
+                diarizer = Diarization(model="pyannote_segmentation")
                 res = diarizer.diarize(empty_audio)
                 self.assertEqual(res, [])
 
-                res_asr = asr_diarize(empty_audio)
+                res_asr = asr_diarize(empty_audio, diarize_model="pyannote_segmentation")
                 self.assertEqual(res_asr, [])
 
     @patch("pythaiasr.diarization.diarize")
@@ -279,7 +289,7 @@ class TestDiarizationModule(unittest.TestCase):
 
         with patch.object(Diarization, "_init_session", return_value=mock_session):
             with patch("pythaiasr.diarization.get_diarization_model_files", return_value="dummy.onnx"):
-                diarizer = Diarization()
+                diarizer = Diarization(model="pyannote_segmentation")
                 segments = diarizer.diarize(audio_24k, sampling_rate=24000)
                 self.assertIsInstance(segments, list)
                 self.assertGreater(len(segments), 0)
@@ -294,6 +304,173 @@ class TestDiarizationModule(unittest.TestCase):
 
             path = get_diarization_model_files(model_dir=tmpdir)
             self.assertEqual(path, dummy_seg)
+
+    def test_nemotron_imports_and_aliases(self):
+        """Verify Nemotron diarization classes and functions are available."""
+        self.assertTrue(callable(NemotronDiarization))
+        self.assertTrue(callable(Nemotron3Diarization))
+        self.assertIs(Nemotron3Diarization, NemotronDiarization)
+        self.assertTrue(callable(segments_to_rttm))
+        self.assertTrue(callable(extract_speaker_dict))
+        self.assertTrue(callable(get_nemotron_diarization_model_files))
+
+    def test_extract_speaker_dict(self):
+        """Test extract_speaker_dict converts frame probabilities to turns."""
+        probs = np.zeros((1, 200, 8), dtype=np.float32)
+        # Speaker 0 active from frame 10 to 30 (0.10s to 0.30s)
+        probs[0, 10:30, 0] = 0.95
+        # Speaker 1 active from frame 50 to 90 (0.50s to 0.90s)
+        probs[0, 50:90, 1] = 0.95
+
+        segments = extract_speaker_dict(probs, threshold=0.5)
+        self.assertEqual(len(segments), 2)
+        self.assertEqual(segments[0]["Speaker"], 0)
+        self.assertAlmostEqual(segments[0]["Start"], 0.10, places=2)
+        self.assertAlmostEqual(segments[0]["End"], 0.30, places=2)
+
+        self.assertEqual(segments[1]["Speaker"], 1)
+        self.assertAlmostEqual(segments[1]["Start"], 0.50, places=2)
+        self.assertAlmostEqual(segments[1]["End"], 0.90, places=2)
+
+    def test_segments_to_rttm(self):
+        """Test segments_to_rttm output formatting."""
+        segments = [
+            {"start": 0.5, "end": 2.0, "speaker": "SPEAKER_00"},
+            {"Start": 2.5, "End": 4.0, "Speaker": 1},
+        ]
+        rttm = segments_to_rttm(segments, uri="recording_01")
+        lines = rttm.strip().split("\n")
+        self.assertEqual(len(lines), 2)
+        self.assertTrue(lines[0].startswith("SPEAKER recording_01 1 0.500 1.500 <NA> <NA> speaker_00"))
+        self.assertTrue(lines[1].startswith("SPEAKER recording_01 1 2.500 1.500 <NA> <NA> speaker_01"))
+
+    def test_numpy_speaker_cache(self):
+        """Test NumpySpeakerCache initialization and buffer updates."""
+        constants = {
+            "hidden_size": np.array(192),
+            "num_speakers": np.array(8),
+            "subsampling_factor": np.array(8),
+            "speaker_cache_length": np.array(64),
+            "speaker_cache_silence_frames_per_speaker": np.array(2),
+            "prediction_score_threshold": np.array(0.5),
+            "latest_frames_score_boost": np.array(1.0),
+            "silence_embeds": np.zeros((1, 16, 192), dtype=np.float32),
+            "min_positive_scores_rate": np.array(0.1),
+            "strong_boost_rate": np.array(0.1),
+            "weak_boost_rate": np.array(0.1),
+        }
+        cache = NumpySpeakerCache(
+            constants=constants,
+            fifo_length=8,
+            speaker_cache_update_period=4,
+        )
+        # Initially empty
+        init_embeds = cache.get_embeds()
+        self.assertEqual(init_embeds.shape, (1, 0, 192))
+
+        # Push a chunk: 16 frames subsampled, 128 frames logits
+        chunk_embeds = np.random.randn(1, 16, 192).astype(np.float32)
+        chunk_logits = np.random.randn(1, 128, 8).astype(np.float32)
+        cache.update(chunk_embeds, chunk_logits, num_chunk_frames=16)
+
+        new_embeds = cache.get_embeds()
+        self.assertGreater(new_embeds.shape[1], 0)
+        self.assertEqual(new_embeds.shape[2], 192)
+
+    @patch("onnxruntime.InferenceSession")
+    def test_mock_nemotron_diarization(self, mock_ort_session):
+        """Test NemotronDiarization inference flow with mocked ONNX runtime."""
+        mock_prep = MagicMock()
+        mock_model = MagicMock()
+        mock_ort_session.side_effect = [mock_prep, mock_model]
+
+        def mock_prep_run(output_names, input_feed):
+            sig_len = input_feed["preemphasized"].shape[1]
+            mel_frames = 1 + sig_len // 160 + 10
+            return [np.zeros((1, mel_frames, 128), dtype=np.float32)]
+
+        def mock_model_run(output_names, input_feed):
+            ctx_len = int(input_feed["context_length"])
+            mel_len = int(input_feed["chunk_mel_length"])
+            num_frames = -(-mel_len // 8)
+            total_embeds = ctx_len + num_frames
+            logits = np.zeros((1, total_embeds * 8, 8), dtype=np.float32)
+            embeds = np.zeros((1, total_embeds, 192), dtype=np.float32)
+            return logits, embeds
+
+        mock_prep.run.side_effect = mock_prep_run
+        mock_model.run.side_effect = mock_model_run
+
+        dummy_constants = {
+            "hidden_size": np.array(192),
+            "num_speakers": np.array(8),
+            "subsampling_factor": np.array(8),
+            "speaker_cache_length": np.array(64),
+            "speaker_cache_silence_frames_per_speaker": np.array(2),
+            "prediction_score_threshold": np.array(0.5),
+            "latest_frames_score_boost": np.array(1.0),
+            "silence_embeds": np.zeros((1, 16, 192), dtype=np.float32),
+            "min_positive_scores_rate": np.array(0.1),
+            "strong_boost_rate": np.array(0.1),
+            "weak_boost_rate": np.array(0.1),
+            "chunk_length": np.array(64),
+            "chunk_right_context": np.array(8),
+            "fifo_length": np.array(8),
+            "speaker_cache_update_period": np.array(4),
+        }
+
+        with patch("pythaiasr.diarization.get_nemotron_diarization_model_files", return_value=("prep.onnx", "const.npz", "model.onnx")):
+            with patch("numpy.load", return_value=dummy_constants):
+                engine = NemotronDiarization(device="cpu")
+                self.assertIsNotNone(engine)
+
+                # Test predict_proba
+                audio = np.zeros(16000, dtype=np.float32)
+                probs = engine.predict_proba(audio)
+                self.assertEqual(probs.ndim, 3)
+                self.assertEqual(probs.shape[-1], 8)
+
+                # Test diarize
+                segments = engine.diarize(audio)
+                self.assertIsInstance(segments, list)
+
+    def test_diarization_class_nemotron_dispatch(self):
+        """Test Diarization wrapper dispatches default model and nemotron aliases to NemotronDiarization."""
+        with patch("pythaiasr.diarization.NemotronDiarization") as mock_engine_class:
+            mock_inst = MagicMock()
+            mock_engine_class.return_value = mock_inst
+
+            # Default model should be nemotron
+            diarizer_default = Diarization()
+            self.assertTrue(diarizer_default.is_nemotron)
+            self.assertEqual(diarizer_default.model_name, "nemotron-3-diarization")
+
+            # Explicit nemotron model name
+            diarizer = Diarization(model="nemotron-3-diarization", precision="int8")
+            self.assertTrue(diarizer.is_nemotron)
+
+            diarizer.diarize(np.zeros(16000, dtype=np.float32))
+            mock_inst.diarize.assert_called_once()
+
+    def test_real_nemotron_diarize_and_rttm(self):
+        """Test real Nemotron diarization on tests/test-diarize.wav if model files are cached."""
+        home = os.path.expanduser("~")
+        cache_dir = os.path.join(home, "pythaiasr-data", "nemotron-3-diarization-onnx")
+        int8_model = os.path.join(cache_dir, "model.int8.onnx")
+
+        if not (os.path.exists(TEST_DIARIZE_FILE) and os.path.exists(int8_model)):
+            self.skipTest("Nemotron model cache or test-diarize.wav not present; skipping live inference test.")
+
+        segments = diarize(TEST_DIARIZE_FILE, model="nemotron-3-diarization")
+        self.assertIsInstance(segments, list)
+        self.assertGreaterEqual(len(segments), 2)
+        speakers = {s["speaker"] for s in segments}
+        self.assertIn("SPEAKER_00", speakers)
+        self.assertIn("SPEAKER_01", speakers)
+
+        # Convert to RTTM
+        rttm = segments_to_rttm(segments, uri="test_audio")
+        self.assertIn("SPEAKER test_audio 1", rttm)
 
 
 if __name__ == "__main__":

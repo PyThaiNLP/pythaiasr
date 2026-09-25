@@ -103,15 +103,22 @@ stream_from_file(streamer, "sample.wav")
 
 ### Speech Diarization (Who Spoke When)
 
-Detect speaker turns and timestamps using ONNX:
+Detect speaker turns and timestamps using ONNX (defaults to NVIDIA Nemotron-3 Diarization, also supports Pyannote Segmentation 3.0):
 
 ```python
-from pythaiasr import diarize
+from pythaiasr import diarize, segments_to_rttm
 
-# Identify who spoke when
+# NVIDIA Nemotron-3 Diarization (default: fast INT8 ONNX, up to 8 speakers)
 segments = diarize("meeting.wav")
 for seg in segments:
     print(f"[{seg['start']:.2f}s - {seg['end']:.2f}s] {seg['speaker']}")
+
+# Pyannote Segmentation 3.0 (optional)
+segments_pyannote = diarize("meeting.wav", model="pyannote_segmentation")
+
+# Export to standard NIST RTTM format
+rttm_str = segments_to_rttm(segments, uri="meeting")
+print(rttm_str)
 ```
 
 ### Speech Diarization + ASR (`asr_diarize`)
@@ -121,7 +128,7 @@ Detect speakers and transcribe each speaker turn with ASR:
 ```python
 from pythaiasr import asr_diarize
 
-# Attributed transcription per speaker
+# Attributed transcription per speaker with Typhoon ASR and Nemotron Diarization (default)
 turns = asr_diarize("meeting.wav", asr_model="typhoon_asr")
 for turn in turns:
     print(f"[{turn['start']:.2f}s - {turn['end']:.2f}s] {turn['speaker']}: {turn['text']}")
@@ -134,19 +141,19 @@ See examples/diarize_example.py
 1. Speech Diarization (Who Spoke When)
 ============================================================
 Processing: examples/../tests/test-diarize.wav ...
-[  0.17s ->   1.87s] SPEAKER_02
-[  1.97s ->   4.30s] SPEAKER_01
-[  4.83s ->   6.49s] SPEAKER_02
-[  6.78s ->   8.36s] SPEAKER_01
+[  0.15s ->   1.82s] SPEAKER_00
+[  1.95s ->   4.34s] SPEAKER_01
+[  4.81s ->   6.45s] SPEAKER_00
+[  6.81s ->   8.39s] SPEAKER_01
 
 ============================================================
 2. Diarization + Speech Recognition (ASR Diarize)
 ============================================================
 Transcribing turns with Typhoon ASR: examples/../tests/test-diarize.wav ...
-[  0.17s ->   1.87s] SPEAKER_02: สวัสดีชาวโลกทุกท่าน
-[  1.97s ->   4.30s] SPEAKER_01: แล้วระบบนี้ทํางานอย่างไร
-[  4.83s ->   6.49s] SPEAKER_02: ใช้ปัญญาประดิษฐ์ในการทดสอบ
-[  6.78s ->   8.36s] SPEAKER_01: ใช้งานได้ดีทีเดียว
+[  0.15s ->   1.82s] SPEAKER_00: สวัสดีชาวโลกทุกท่าน
+[  1.95s ->   4.34s] SPEAKER_01: แล้วระบบนี้ทํางานอย่างไร
+[  4.81s ->   6.45s] SPEAKER_00: ใช้ปัญญาประดิษฐ์ในการทดสอบ
+[  6.81s ->   8.39s] SPEAKER_01: ใช้งานได้ดีทีเดียว
 ```
 
 ### API
@@ -217,14 +224,16 @@ You can read about models from the list:
 - [*biodatlab/whisper-th-medium-combined* - Thai Whisper medium model](https://huggingface.co/biodatlab/whisper-th-medium-combined)
 - [*biodatlab/whisper-th-large-combined* - Thai Whisper large model](https://huggingface.co/biodatlab/whisper-th-large-combined)
 - [*biodatlab/whisper-th-medium-timestamp* - Thai Whisper medium model with timestamp support](https://huggingface.co/biodatlab/whisper-th-medium-timestamp)
+- [*joosthel/Nemotron-3-Diarization-ONNX* - NVIDIA Nemotron-3 Diarization ONNX model](https://huggingface.co/joosthel/Nemotron-3-Diarization-ONNX)
 
 #### diarize
 
 ```python
 diarize(
     data: Union[str, Path, np.ndarray],
-    model: str = "pyannote_segmentation",
+    model: str = "nemotron-3-diarization",
     device: Optional[str] = None,
+    precision: str = "int8",
     sampling_rate: int = 16_000,
     num_speakers: Optional[int] = None,
     min_speakers: Optional[int] = None,
@@ -238,8 +247,11 @@ diarize(
 ```
 
 - `data`: Audio file path or 1D numpy array of audio waveform.
-- `model`: Diarization model identifier (default: `"pyannote_segmentation"`).
+- `model`: Diarization model identifier:
+  - `"nemotron-3-diarization"` (default) / `"joosthel/Nemotron-3-Diarization-ONNX"` - NVIDIA Nemotron-3 Diarization (streaming cache, up to 8 speakers)
+  - `"pyannote_segmentation"` - Pyannote Segmentation 3.0 ONNX
 - `device`: Device to run inference on (`"auto"`, `"cpu"`, `"cuda"`).
+- `precision`: Model precision for Nemotron (`"int8"` default, or `"fp32"`).
 - `sampling_rate`: Audio sampling rate (default: 16000).
 - `num_speakers`: Exact number of speakers if known.
 - `onset`: Speech onset probability threshold (default: 0.5).
@@ -255,8 +267,9 @@ diarize(
 asr_diarize(
     data: Union[str, Path, np.ndarray],
     asr_model: str = "typhoon_asr",
-    diarize_model: str = "pyannote_segmentation",
+    diarize_model: str = "nemotron-3-diarization",
     device: Optional[str] = None,
+    precision: str = "int8",
     sampling_rate: int = 16_000,
     lm: bool = False,
     num_speakers: Optional[int] = None,
@@ -269,7 +282,8 @@ asr_diarize(
 
 - `data`: Audio file path or 1D numpy array of audio waveform.
 - `asr_model`: The ASR model name (default: `"typhoon_asr"`).
-- `diarize_model`: Diarization model name (default: `"pyannote_segmentation"`).
+- `diarize_model`: Diarization model name (default: `"nemotron-3-diarization"`, or `"pyannote_segmentation"`).
+- `precision`: Model precision for Nemotron (`"int8"` default, or `"fp32"`).
 - `merge_same_speaker`: Whether to merge adjacent speech turns from the same speaker (default: `True`).
 - `max_merge_gap`: Maximum gap in seconds between same-speaker segments to merge (default: 0.5).
 - `backend`: Diarization engine (`"onnx"` or `"sherpa-onnx"`, default: `"onnx"`).
