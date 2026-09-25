@@ -13,7 +13,7 @@ import sys
 # Ensure pythaiasr package in current repo can be imported directly
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from pythaiasr import diarize, asr_diarize
+from pythaiasr import diarize, asr_diarize, segments_to_rttm
 
 
 def main():
@@ -27,7 +27,7 @@ def main():
         sys.exit(1)
 
     print("=" * 60)
-    print("1. Speech Diarization (Who Spoke When)")
+    print("1. Speech Diarization (defaults to Nemotron-3 INT8 ONNX)")
     print("=" * 60)
     print(f"Processing: {test_audio} ...")
     segments = diarize(test_audio, device="auto")
@@ -38,11 +38,18 @@ def main():
         for seg in segments:
             print(f"[{seg['start']:6.2f}s -> {seg['end']:6.2f}s] {seg['speaker']}")
 
-    print("\n" + "=" * 60)
+        print("\nNIST RTTM Format:")
+        print(segments_to_rttm(segments, uri=os.path.basename(test_audio)))
+
+    print("=" * 60)
     print("2. Diarization + Speech Recognition (ASR Diarize)")
     print("=" * 60)
     print(f"Transcribing turns with Typhoon ASR: {test_audio} ...")
-    turns = asr_diarize(test_audio, asr_model="typhoon_asr", device="auto")
+    turns = asr_diarize(
+        test_audio,
+        asr_model="typhoon_asr",
+        device="auto",
+    )
 
     if not turns:
         print("No speech turns found.")
@@ -53,4 +60,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
