@@ -59,6 +59,9 @@ file = "sample.wav"
 # Uses Typhoon ASR (FastConformer RNN-T ONNX) by default
 print(asr(file))
 
+# Use Typhoon Nemotron 3.5 Streaming ASR (INT4 ONNX)
+print(asr(file, model="typhoon_nemotron_asr"))
+
 # With timestamps (returns dictionary with 'text', 'chunks', and 'timestamps')
 result = asr(file, return_timestamps=True)
 print(result["text"])
@@ -69,6 +72,7 @@ for chunk in result["chunks"]:
 # print(asr(file, model="airesearch/wav2vec2-large-xlsr-53-th"))
 # print(asr(file, model="biodatlab/whisper-small-th-combined"))
 # print(asr(file, model="biodatlab/whisper-th-medium-timestamp", return_timestamps=True))
+
 ```
 
 ### Live Audio Streaming
@@ -206,6 +210,8 @@ stream_asr(
 
 **Options for model**
 - *typhoon_asr* / *typhoon-asr-realtime* (default) - Typhoon FastConformer RNN-T ONNX model (offline & realtime)
+- *typhoon_nemotron_asr* / *wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx* - Typhoon Nemotron 3.5 Streaming ASR INT4 ONNX model
+- *typhoon_nemotron_asr_fp32* / *wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx* - Typhoon Nemotron 3.5 Streaming ASR FP32 ONNX model
 - *airesearch/wav2vec2-large-xlsr-53-th* - AI RESEARCH - PyThaiNLP model (requires pythaiasr[torch])
 - *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) (requires pythaiasr[torch])
 - *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) (requires pythaiasr[torch])
@@ -217,6 +223,8 @@ stream_asr(
 You can read about models from the list:
 
 - [*typhoon-ai/typhoon-asr-realtime* / *wannaphong/typhoon-asr-realtime-onnx* - Typhoon FastConformer RNN-T ONNX model](https://huggingface.co/wannaphong/typhoon-asr-realtime-onnx)
+- [*wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx* - Typhoon Nemotron 3.5 Streaming ASR INT4 ONNX model](https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx)
+- [*wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx* - Typhoon Nemotron 3.5 Streaming ASR FP32 ONNX model](https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx)
 - [*airesearch/wav2vec2-large-xlsr-53-th* - AI RESEARCH - PyThaiNLP model](https://medium.com/airesearch-in-th/airesearch-in-th-3c1019a99cd)
 - [*annaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) + language model](https://huggingface.co/wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm) 
 - [*wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) + language model](https://huggingface.co/wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut)

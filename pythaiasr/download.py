@@ -42,6 +42,41 @@ DEFAULT_NEMOTRON_DIARIZATION_FILENAMES = {
     "constants": "constants.npz",
 }
 
+DEFAULT_TYPHOON_NEMOTRON_ASR_URLS_INT4 = {
+    "encoder": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx/resolve/main/encoder.onnx",
+    "decoder": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx/resolve/main/decoder.onnx",
+    "joint": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx/resolve/main/joint.onnx",
+    "vocab": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx/resolve/main/tokens.txt",
+    "config": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx/resolve/main/nemotron_onnx_config.json",
+}
+
+DEFAULT_TYPHOON_NEMOTRON_ASR_URLS_FP32 = {
+    "encoder": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx/resolve/main/encoder.onnx",
+    "encoder_data": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx/resolve/main/encoder.onnx.data",
+    "decoder": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx/resolve/main/decoder.onnx",
+    "joint": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx/resolve/main/joint.onnx",
+    "vocab": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx/resolve/main/tokens.txt",
+    "config": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx/resolve/main/nemotron_onnx_config.json",
+}
+
+DEFAULT_TYPHOON_NEMOTRON_ASR_URLS = DEFAULT_TYPHOON_NEMOTRON_ASR_URLS_INT4
+
+DEFAULT_TYPHOON_NEMOTRON_ASR_FILENAMES = {
+    "encoder": "encoder.onnx",
+    "encoder_data": "encoder.onnx.data",
+    "decoder": "decoder.onnx",
+    "joint": "joint.onnx",
+    "vocab": "tokens.txt",
+    "config": "nemotron_onnx_config.json",
+}
+
+# Backward compatibility aliases
+DEFAULT_NEMOTRON_ASR_URLS_INT4 = DEFAULT_TYPHOON_NEMOTRON_ASR_URLS_INT4
+DEFAULT_NEMOTRON_ASR_URLS_FP32 = DEFAULT_TYPHOON_NEMOTRON_ASR_URLS_FP32
+DEFAULT_NEMOTRON_ASR_URLS = DEFAULT_TYPHOON_NEMOTRON_ASR_URLS
+DEFAULT_NEMOTRON_ASR_FILENAMES = DEFAULT_TYPHOON_NEMOTRON_ASR_FILENAMES
+
+
 
 def get_pythaiasr_path() -> str:
     """
@@ -337,3 +372,118 @@ def get_nemotron_diarization_model_files(
         download_file(urls["constants"], const_path)
 
     return prep_path, model_path, const_path
+
+
+def get_nemotron_asr_model_files(
+    model_dir: Optional[str] = None,
+    precision: str = "int4",
+    urls: Optional[Dict[str, str]] = None,
+) -> Tuple[str, str, str, str, str]:
+    """
+    Ensure Nemotron 3.5 Streaming ASR ONNX model files are present.
+    Downloads to `~/pythaiasr-data/typhoon-asr-streaming-nemotron-0.6b-{precision}-onnx/` if missing.
+
+    :param model_dir: Custom directory to store or load model files.
+    :param precision: Model precision ('int4' or 'fp32', default: 'int4').
+    :param urls: Custom dictionary with URLs for 'encoder', 'encoder_data' (for fp32), 'decoder', 'joint', 'vocab', 'config'.
+    :return: Tuple of (encoder_path, decoder_path, joint_path, vocab_path, config_path).
+    """
+    precision = precision.lower()
+    if urls is None:
+        urls = DEFAULT_NEMOTRON_ASR_URLS_FP32 if precision == "fp32" else DEFAULT_NEMOTRON_ASR_URLS_INT4
+
+    if model_dir is None:
+        root_data = get_pythaiasr_path()
+        model_dir = os.path.join(root_data, f"typhoon-asr-streaming-nemotron-0.6b-{precision}-onnx")
+    else:
+        model_dir = os.path.abspath(os.path.expanduser(model_dir))
+
+    try:
+        os.makedirs(model_dir, exist_ok=True)
+    except OSError:
+        pass
+
+    enc_path = os.path.join(model_dir, DEFAULT_NEMOTRON_ASR_FILENAMES["encoder"])
+    enc_data_path = os.path.join(model_dir, DEFAULT_NEMOTRON_ASR_FILENAMES["encoder_data"])
+    dec_path = os.path.join(model_dir, DEFAULT_NEMOTRON_ASR_FILENAMES["decoder"])
+    joint_path = os.path.join(model_dir, DEFAULT_NEMOTRON_ASR_FILENAMES["joint"])
+    vocab_path = os.path.join(model_dir, DEFAULT_NEMOTRON_ASR_FILENAMES["vocab"])
+    config_path = os.path.join(model_dir, DEFAULT_NEMOTRON_ASR_FILENAMES["config"])
+
+    all_needed = [enc_path, dec_path, joint_path, vocab_path]
+    if "encoder_data" in urls:
+        all_needed.append(enc_data_path)
+
+    # Check local candidate paths if any file is missing
+    if not all(os.path.exists(p) for p in all_needed):
+        local_candidates = [
+            os.path.abspath(f"typhoon-asr-streaming-nemotron-0.6b-{precision}-onnx"),
+            os.path.abspath(f"typhoon-asr-streaming-nemotron-0.6b-onnx/{precision}"),
+            os.path.abspath("typhoon-asr-streaming-nemotron-0.6b-onnx"),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", f"typhoon-asr-streaming-nemotron-0.6b-{precision}-onnx")),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "typhoon-asr-streaming-nemotron-0.6b-onnx", precision)),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "typhoon-asr-streaming-nemotron-0.6b-onnx")),
+        ]
+        for candidate in local_candidates:
+            if os.path.isdir(candidate):
+                cand_files = {
+                    key: os.path.join(candidate, DEFAULT_NEMOTRON_ASR_FILENAMES[key])
+                    for key in DEFAULT_NEMOTRON_ASR_FILENAMES
+                }
+                # Also accept joiner.onnx if joint.onnx is missing
+                if not os.path.exists(cand_files["joint"]):
+                    cand_joiner = os.path.join(candidate, "joiner.onnx")
+                    if os.path.exists(cand_joiner):
+                        cand_files["joint"] = cand_joiner
+                # Also accept tokens.txt / vocab.txt
+                if not os.path.exists(cand_files["vocab"]):
+                    cand_voc = os.path.join(candidate, "vocab.txt")
+                    if os.path.exists(cand_voc):
+                        cand_files["vocab"] = cand_voc
+
+                # Check if core files exist
+                needed_cand = [cand_files["encoder"], cand_files["decoder"], cand_files["joint"], cand_files["vocab"]]
+                if "encoder_data" in urls:
+                    needed_cand.append(cand_files["encoder_data"])
+
+                if all(os.path.exists(p) for p in needed_cand):
+                    try:
+                        os.makedirs(model_dir, exist_ok=True)
+                        for key, dest in [
+                            ("encoder", enc_path),
+                            ("encoder_data", enc_data_path),
+                            ("decoder", dec_path),
+                            ("joint", joint_path),
+                            ("vocab", vocab_path),
+                            ("config", config_path),
+                        ]:
+                            src = cand_files.get(key)
+                            if src and os.path.exists(src) and not os.path.exists(dest):
+                                shutil.copy2(src, dest)
+                    except OSError:
+                        return cand_files["encoder"], cand_files["decoder"], cand_files["joint"], cand_files["vocab"], cand_files.get("config", config_path)
+                    break
+
+    # Download missing files
+    try:
+        os.makedirs(model_dir, exist_ok=True)
+    except OSError:
+        pass
+
+    for key, path in [
+        ("encoder", enc_path),
+        ("encoder_data", enc_data_path),
+        ("decoder", dec_path),
+        ("joint", joint_path),
+        ("vocab", vocab_path),
+        ("config", config_path),
+    ]:
+        if not os.path.exists(path) and key in urls:
+            download_file(urls[key], path)
+
+    return enc_path, dec_path, joint_path, vocab_path, config_path
+
+
+get_typhoon_nemotron_asr_model_files = get_nemotron_asr_model_files
+
+
