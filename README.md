@@ -59,8 +59,8 @@ file = "sample.wav"
 # Uses Typhoon ASR (FastConformer RNN-T ONNX) by default
 print(asr(file))
 
-# Use Nemotron 3.5 Streaming ASR (INT4 ONNX)
-print(asr(file, model="nemotron_asr"))
+# Use Typhoon Nemotron 3.5 Streaming ASR (INT4 ONNX)
+print(asr(file, model="typhoon_nemotron_asr"))
 
 # With timestamps (returns dictionary with 'text', 'chunks', and 'timestamps')
 result = asr(file, return_timestamps=True)
@@ -210,8 +210,8 @@ stream_asr(
 
 **Options for model**
 - *typhoon_asr* / *typhoon-asr-realtime* (default) - Typhoon FastConformer RNN-T ONNX model (offline & realtime)
-- *nemotron_asr* / *wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx* - Typhoon Nemotron 3.5 Streaming ASR INT4 ONNX model
-- *nemotron_asr_fp32"* / *wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx* - Typhoon Nemotron 3.5 Streaming ASR FP32 ONNX model
+- *typhoon_nemotron_asr* / *wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx* - Typhoon Nemotron 3.5 Streaming ASR INT4 ONNX model
+- *typhoon_nemotron_asr_fp32* / *wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx* - Typhoon Nemotron 3.5 Streaming ASR FP32 ONNX model
 - *airesearch/wav2vec2-large-xlsr-53-th* - AI RESEARCH - PyThaiNLP model (requires pythaiasr[torch])
 - *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) (requires pythaiasr[torch])
 - *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) (requires pythaiasr[torch])

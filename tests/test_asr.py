@@ -23,11 +23,17 @@ from pythaiasr import (
     NemotronASR,
     NemotronStreamASR,
     RealtimeStreamNemotron,
+    TyphoonNemotronStreamingASR,
+    TyphoonNemotronASR,
+    TyphoonNemotronStreamASR,
+    RealtimeStreamTyphoonNemotron,
     get_pythaiasr_path,
     get_typhoon_model_files,
     get_nemotron_asr_model_files,
+    get_typhoon_nemotron_asr_model_files,
     extract_features,
     extract_nemotron_features,
+    extract_typhoon_nemotron_features,
     load_audio,
 )
 
@@ -162,8 +168,14 @@ class TestKhaveePackage(unittest.TestCase):
     def test_nemotron_support_models(self):
         """Test that Nemotron streaming models are included in ASR supported models."""
         asr_obj = ASR.__new__(ASR)
-        asr_obj.model_name = "nemotron_asr"
+        asr_obj.model_name = "typhoon_nemotron_asr"
         asr_obj.support_model = [
+            "typhoon_nemotron_asr",
+            "typhoon-nemotron-asr",
+            "typhoon_nemotron_asr_int4",
+            "typhoon-nemotron-asr-int4",
+            "typhoon_nemotron_asr_fp32",
+            "typhoon-nemotron-asr-fp32",
             "nemotron_asr",
             "nemotron-asr",
             "nemotron_asr_int4",
@@ -175,6 +187,9 @@ class TestKhaveePackage(unittest.TestCase):
             "wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx",
             "wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx",
         ]
+        self.assertIn("typhoon_nemotron_asr", asr_obj.support_model)
+        self.assertIn("typhoon_nemotron_asr_int4", asr_obj.support_model)
+        self.assertIn("typhoon_nemotron_asr_fp32", asr_obj.support_model)
         self.assertIn("nemotron_asr", asr_obj.support_model)
         self.assertIn("nemotron-3.5-asr-streaming-0.6b", asr_obj.support_model)
         self.assertIn("wannaphong/nemotron-3.5-asr-streaming-0.6b-onnx-int4", asr_obj.support_model)
@@ -471,8 +486,25 @@ class TestKhaveePackage(unittest.TestCase):
         self.assertTrue(callable(NemotronStreamASR))
         self.assertTrue(callable(RealtimeStreamNemotron))
         self.assertIs(RealtimeStreamNemotron, NemotronStreamASR)
+        self.assertTrue(callable(TyphoonNemotronStreamingASR))
+        self.assertIs(TyphoonNemotronStreamingASR, NemotronStreamingASR)
+        self.assertTrue(callable(TyphoonNemotronASR))
+        self.assertIs(TyphoonNemotronASR, NemotronStreamingASR)
+        self.assertTrue(callable(TyphoonNemotronStreamASR))
+        self.assertIs(TyphoonNemotronStreamASR, NemotronStreamASR)
+        self.assertTrue(callable(RealtimeStreamTyphoonNemotron))
+        self.assertIs(RealtimeStreamTyphoonNemotron, NemotronStreamASR)
         self.assertTrue(callable(get_nemotron_asr_model_files))
+        self.assertTrue(callable(get_typhoon_nemotron_asr_model_files))
+        self.assertIs(get_typhoon_nemotron_asr_model_files, get_nemotron_asr_model_files)
         self.assertTrue(callable(extract_nemotron_features))
+        self.assertTrue(callable(extract_typhoon_nemotron_features))
+        self.assertIs(extract_typhoon_nemotron_features, extract_nemotron_features)
+
+        # Check module imports from both typhoon_nemotron_asr and nemotron_asr
+        from pythaiasr.typhoon_nemotron_asr import NEMOTRON_PROMPTS as PROMPTS1
+        from pythaiasr.nemotron_asr import NEMOTRON_PROMPTS as PROMPTS2
+        self.assertEqual(PROMPTS1, PROMPTS2)
 
     def test_extract_nemotron_features(self):
         """Test Nemotron 128-mel feature extraction."""
@@ -579,13 +611,19 @@ class TestKhaveePackage(unittest.TestCase):
         with patch("pythaiasr.NemotronStreamingASR") as mock_engine_class:
             mock_inst = MagicMock()
             mock_engine_class.return_value = mock_inst
-            engine = ASR(model="nemotron_asr")
+
+            # Primary model name: typhoon_nemotron_asr
+            engine = ASR(model="typhoon_nemotron_asr")
             self.assertTrue(engine.is_nemotron)
             self.assertFalse(engine.is_typhoon)
             self.assertEqual(engine.model, mock_inst)
 
             engine(np.zeros(16000, dtype=np.float32))
             mock_inst.transcribe.assert_called_once()
+
+            # Backward compatibility alias: nemotron_asr
+            engine_alias = ASR(model="nemotron_asr")
+            self.assertTrue(engine_alias.is_nemotron)
 
 
 if __name__ == '__main__':

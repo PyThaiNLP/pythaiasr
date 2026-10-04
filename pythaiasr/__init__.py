@@ -28,6 +28,7 @@ from pythaiasr.download import (
     get_diarization_model_files,
     get_nemotron_diarization_model_files,
     get_nemotron_asr_model_files,
+    get_typhoon_nemotron_asr_model_files,
     download_file,
 )
 from pythaiasr.typhoon import (
@@ -40,12 +41,17 @@ from pythaiasr.typhoon import (
     extract_features,
     load_audio,
 )
-from pythaiasr.nemotron_asr import (
+from pythaiasr.typhoon_nemotron_asr import (
     NemotronStreamingASR,
     NemotronASR,
     NemotronStreamASR,
     RealtimeStreamNemotron,
     extract_nemotron_features,
+    TyphoonNemotronStreamingASR,
+    TyphoonNemotronASR,
+    TyphoonNemotronStreamASR,
+    RealtimeStreamTyphoonNemotron,
+    extract_typhoon_nemotron_features,
 )
 from pythaiasr.diarization import (
     Diarization,
@@ -72,7 +78,7 @@ class ASR:
         
         **Options for model**
             * *typhoon_asr* / *typhoon-asr-realtime* (default) - Typhoon FastConformer RNN-T ONNX model (offline & realtime)
-            * *nemotron_asr* / *wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx* (INT4) / *wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx* (FP32) - Typhoon Nemotron 3.5 Streaming ASR ONNX models
+            * *typhoon_nemotron_asr* / *wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx* (INT4) / *wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx* (FP32) - Typhoon Nemotron 3.5 Streaming ASR ONNX models
             * *airesearch/wav2vec2-large-xlsr-53-th* - AI RESEARCH - PyThaiNLP model (requires pythaiasr[torch])
             * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) + language model (requires pythaiasr[torch])
             * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) + language model (requires pythaiasr[torch])
@@ -93,6 +99,12 @@ class ASR:
             "typhoon_asr",
             "typhoon-asr-realtime",
             "wannaphong/typhoon-asr-realtime-onnx",
+            "typhoon_nemotron_asr",
+            "typhoon-nemotron-asr",
+            "typhoon_nemotron_asr_int4",
+            "typhoon-nemotron-asr-int4",
+            "typhoon_nemotron_asr_fp32",
+            "typhoon-nemotron-asr-fp32",
             "nemotron_asr",
             "nemotron-asr",
             "nemotron_asr_int4",
@@ -116,6 +128,12 @@ class ASR:
             "wannaphong/typhoon-asr-realtime-onnx",
         ]
         self.nemotron_models = [
+            "typhoon_nemotron_asr",
+            "typhoon-nemotron-asr",
+            "typhoon_nemotron_asr_int4",
+            "typhoon-nemotron-asr-int4",
+            "typhoon_nemotron_asr_fp32",
+            "typhoon-nemotron-asr-fp32",
             "nemotron_asr",
             "nemotron-asr",
             "nemotron_asr_int4",
@@ -391,6 +409,7 @@ def asr(
 
     **Options for model**
         * *typhoon_asr* / *typhoon-asr-realtime* (default) - Typhoon FastConformer RNN-T ONNX model
+        * *typhoon_nemotron_asr* / *wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx* (INT4) / *wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx* (FP32) - Typhoon Nemotron 3.5 Streaming ASR ONNX models
         * *airesearch/wav2vec2-large-xlsr-53-th* - AI RESEARCH - PyThaiNLP model (requires pythaiasr[torch])
         * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) (+ language model, requires pythaiasr[torch])
         * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) (+ language model, requires pythaiasr[torch])
@@ -435,6 +454,7 @@ def stream_asr(
     
     **Options for model**
         * *typhoon_asr* / *typhoon-asr-realtime* (default) - Typhoon FastConformer RNN-T ONNX model (recommended for streaming)
+        * *typhoon_nemotron_asr* / *typhoon-nemotron-asr* - Typhoon Nemotron 3.5 Streaming ASR ONNX model
         * *airesearch/wav2vec2-large-xlsr-53-th* - AI RESEARCH - PyThaiNLP model (requires pythaiasr[torch])
         * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) (+ language model, requires pythaiasr[torch])
         * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) (+ language model, requires pythaiasr[torch])
@@ -573,6 +593,11 @@ __all__ = [
     "NemotronStreamASR",
     "RealtimeStreamNemotron",
     "extract_nemotron_features",
+    "TyphoonNemotronStreamingASR",
+    "TyphoonNemotronASR",
+    "TyphoonNemotronStreamASR",
+    "RealtimeStreamTyphoonNemotron",
+    "extract_typhoon_nemotron_features",
     "stream_from_mic",
     "stream_from_file",
     "list_audio_devices",
@@ -583,6 +608,7 @@ __all__ = [
     "get_diarization_model_files",
     "get_nemotron_diarization_model_files",
     "get_nemotron_asr_model_files",
+    "get_typhoon_nemotron_asr_model_files",
     "download_file",
 ]
 

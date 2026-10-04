@@ -42,7 +42,7 @@ DEFAULT_NEMOTRON_DIARIZATION_FILENAMES = {
     "constants": "constants.npz",
 }
 
-DEFAULT_NEMOTRON_ASR_URLS_INT4 = {
+DEFAULT_TYPHOON_NEMOTRON_ASR_URLS_INT4 = {
     "encoder": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx/resolve/main/encoder.onnx",
     "decoder": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx/resolve/main/decoder.onnx",
     "joint": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx/resolve/main/joint.onnx",
@@ -50,7 +50,7 @@ DEFAULT_NEMOTRON_ASR_URLS_INT4 = {
     "config": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx/resolve/main/nemotron_onnx_config.json",
 }
 
-DEFAULT_NEMOTRON_ASR_URLS_FP32 = {
+DEFAULT_TYPHOON_NEMOTRON_ASR_URLS_FP32 = {
     "encoder": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx/resolve/main/encoder.onnx",
     "encoder_data": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx/resolve/main/encoder.onnx.data",
     "decoder": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx/resolve/main/decoder.onnx",
@@ -59,9 +59,9 @@ DEFAULT_NEMOTRON_ASR_URLS_FP32 = {
     "config": "https://huggingface.co/wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx/resolve/main/nemotron_onnx_config.json",
 }
 
-DEFAULT_NEMOTRON_ASR_URLS = DEFAULT_NEMOTRON_ASR_URLS_INT4
+DEFAULT_TYPHOON_NEMOTRON_ASR_URLS = DEFAULT_TYPHOON_NEMOTRON_ASR_URLS_INT4
 
-DEFAULT_NEMOTRON_ASR_FILENAMES = {
+DEFAULT_TYPHOON_NEMOTRON_ASR_FILENAMES = {
     "encoder": "encoder.onnx",
     "encoder_data": "encoder.onnx.data",
     "decoder": "decoder.onnx",
@@ -69,6 +69,12 @@ DEFAULT_NEMOTRON_ASR_FILENAMES = {
     "vocab": "tokens.txt",
     "config": "nemotron_onnx_config.json",
 }
+
+# Backward compatibility aliases
+DEFAULT_NEMOTRON_ASR_URLS_INT4 = DEFAULT_TYPHOON_NEMOTRON_ASR_URLS_INT4
+DEFAULT_NEMOTRON_ASR_URLS_FP32 = DEFAULT_TYPHOON_NEMOTRON_ASR_URLS_FP32
+DEFAULT_NEMOTRON_ASR_URLS = DEFAULT_TYPHOON_NEMOTRON_ASR_URLS
+DEFAULT_NEMOTRON_ASR_FILENAMES = DEFAULT_TYPHOON_NEMOTRON_ASR_FILENAMES
 
 
 
@@ -476,4 +482,8 @@ def get_nemotron_asr_model_files(
             download_file(urls[key], path)
 
     return enc_path, dec_path, joint_path, vocab_path, config_path
+
+
+get_typhoon_nemotron_asr_model_files = get_nemotron_asr_model_files
+
 
