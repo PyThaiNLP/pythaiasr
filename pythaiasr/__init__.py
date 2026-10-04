@@ -27,6 +27,7 @@ from pythaiasr.download import (
     get_typhoon_model_files,
     get_diarization_model_files,
     get_nemotron_diarization_model_files,
+    get_nemotron_asr_model_files,
     download_file,
 )
 from pythaiasr.typhoon import (
@@ -39,6 +40,13 @@ from pythaiasr.typhoon import (
     extract_features,
     load_audio,
 )
+from pythaiasr.nemotron_asr import (
+    NemotronStreamingASR,
+    NemotronASR,
+    NemotronStreamASR,
+    RealtimeStreamNemotron,
+    extract_nemotron_features,
+)
 from pythaiasr.diarization import (
     Diarization,
     NemotronDiarization,
@@ -50,8 +58,9 @@ from pythaiasr.diarization import (
     extract_speaker_dict,
 )
 
-# Friendly alias
+# Friendly aliases
 TyphoonASR = FastConformerRNNT
+
 
 
 class ASR:
@@ -63,6 +72,7 @@ class ASR:
         
         **Options for model**
             * *typhoon_asr* / *typhoon-asr-realtime* (default) - Typhoon FastConformer RNN-T ONNX model (offline & realtime)
+            * *nemotron_asr* / *wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx* (INT4) / *wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx* (FP32) - Typhoon Nemotron 3.5 Streaming ASR ONNX models
             * *airesearch/wav2vec2-large-xlsr-53-th* - AI RESEARCH - PyThaiNLP model (requires pythaiasr[torch])
             * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-newmm* - Thai Wav2Vec2 with CommonVoice V8 (newmm tokenizer) + language model (requires pythaiasr[torch])
             * *wannaphong/wav2vec2-large-xlsr-53-th-cv8-deepcut* - Thai Wav2Vec2 with CommonVoice V8 (deepcut tokenizer) + language model (requires pythaiasr[torch])
@@ -83,6 +93,16 @@ class ASR:
             "typhoon_asr",
             "typhoon-asr-realtime",
             "wannaphong/typhoon-asr-realtime-onnx",
+            "nemotron_asr",
+            "nemotron-asr",
+            "nemotron_asr_int4",
+            "nemotron-asr-int4",
+            "nemotron_asr_fp32",
+            "nemotron-asr-fp32",
+            "nemotron-3.5-asr-streaming-0.6b",
+            "wannaphong/nemotron-3.5-asr-streaming-0.6b-onnx-int4",
+            "wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx",
+            "wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx",
         ]
         self.whisper_models = [
             "biodatlab/whisper-small-th-combined",
@@ -95,10 +115,23 @@ class ASR:
             "typhoon-asr-realtime",
             "wannaphong/typhoon-asr-realtime-onnx",
         ]
+        self.nemotron_models = [
+            "nemotron_asr",
+            "nemotron-asr",
+            "nemotron_asr_int4",
+            "nemotron-asr-int4",
+            "nemotron_asr_fp32",
+            "nemotron-asr-fp32",
+            "nemotron-3.5-asr-streaming-0.6b",
+            "wannaphong/nemotron-3.5-asr-streaming-0.6b-onnx-int4",
+            "wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx",
+            "wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx",
+        ]
         assert self.model_name in self.support_model, f"Model {self.model_name} is not in supported models: {self.support_model}"
         self.lm = lm
 
         self.is_typhoon = self.model_name in self.typhoon_models
+        self.is_nemotron = self.model_name in self.nemotron_models
         self.is_whisper = self.model_name in self.whisper_models
 
         if self.is_typhoon:
@@ -106,6 +139,14 @@ class ASR:
             self.model = FastConformerRNNT(device=dev)
             self.device = dev
             return
+
+        if self.is_nemotron:
+            dev = device if device is not None else "auto"
+            prec = "fp32" if "fp32" in self.model_name else "int4"
+            self.model = NemotronStreamingASR(device=dev, precision=prec)
+            self.device = dev
+            return
+
 
         if torch is None or torchaudio is None:
             raise ImportError(
@@ -168,12 +209,21 @@ class ASR:
         :rtype: Union[str, dict]
         """
         use_timestamps = return_timestamps if return_timestamps is not None else timestamps
-        if self.is_typhoon:
+        if getattr(self, "is_typhoon", False):
             return self.model.transcribe(
                 data,
                 sample_rate=sampling_rate,
                 return_timestamps=use_timestamps,
             )
+
+        if getattr(self, "is_nemotron", False):
+            return self.model.transcribe(
+                data,
+                sampling_rate=sampling_rate,
+                return_timestamps=use_timestamps,
+            )
+
+
 
         b = {}
         if isinstance(data, np.ndarray):
@@ -417,11 +467,11 @@ def stream_asr(
         _model_name = model
     
     if chunk_duration is None:
-        chunk_duration = 0.48 if _model.is_typhoon else 5.0
+        chunk_duration = 0.56 if getattr(_model, "is_nemotron", False) else (0.48 if _model.is_typhoon else 5.0)
 
     use_timestamps = return_timestamps or bool(timestamps)
 
-    # If Typhoon model, use stateful RealtimeStreamASR
+    # If Typhoon or Nemotron model, use stateful realtime stream session
     streamer = None
     if _model.is_typhoon:
         streamer = RealtimeStreamASR(
@@ -429,6 +479,13 @@ def stream_asr(
             sample_rate=sampling_rate,
             step_sec=chunk_duration,
         )
+    elif getattr(_model, "is_nemotron", False):
+        streamer = NemotronStreamASR(
+            model=_model.model,
+            sample_rate=sampling_rate,
+            step_sec=chunk_duration,
+        )
+
 
     # Initialize PyAudio
     audio = pyaudio.PyAudio()
@@ -511,6 +568,11 @@ __all__ = [
     "TyphoonASR",
     "RealtimeStreamASR",
     "StreamingTranscriber",
+    "NemotronStreamingASR",
+    "NemotronASR",
+    "NemotronStreamASR",
+    "RealtimeStreamNemotron",
+    "extract_nemotron_features",
     "stream_from_mic",
     "stream_from_file",
     "list_audio_devices",
@@ -520,5 +582,7 @@ __all__ = [
     "get_typhoon_model_files",
     "get_diarization_model_files",
     "get_nemotron_diarization_model_files",
+    "get_nemotron_asr_model_files",
     "download_file",
 ]
+

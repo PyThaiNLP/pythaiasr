@@ -19,11 +19,18 @@ from pythaiasr import (
     FastConformerRNNT,
     RealtimeStreamASR,
     StreamingTranscriber,
+    NemotronStreamingASR,
+    NemotronASR,
+    NemotronStreamASR,
+    RealtimeStreamNemotron,
     get_pythaiasr_path,
     get_typhoon_model_files,
+    get_nemotron_asr_model_files,
     extract_features,
+    extract_nemotron_features,
     load_audio,
 )
+
 
 file = os.path.join(".", "tests", "common_voice_th_25686161.wav")
 test_wav_file = os.path.join(".", "tests", "test.wav")
@@ -151,6 +158,29 @@ class TestKhaveePackage(unittest.TestCase):
         self.assertIn("typhoon-asr-realtime", asr_obj.support_model)
         self.assertIn("wannaphong/typhoon-asr-realtime-onnx", asr_obj.support_model)
         self.assertIn("biodatlab/whisper-th-medium-timestamp", asr_obj.support_model)
+
+    def test_nemotron_support_models(self):
+        """Test that Nemotron streaming models are included in ASR supported models."""
+        asr_obj = ASR.__new__(ASR)
+        asr_obj.model_name = "nemotron_asr"
+        asr_obj.support_model = [
+            "nemotron_asr",
+            "nemotron-asr",
+            "nemotron_asr_int4",
+            "nemotron-asr-int4",
+            "nemotron_asr_fp32",
+            "nemotron-asr-fp32",
+            "nemotron-3.5-asr-streaming-0.6b",
+            "wannaphong/nemotron-3.5-asr-streaming-0.6b-onnx-int4",
+            "wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx",
+            "wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx",
+        ]
+        self.assertIn("nemotron_asr", asr_obj.support_model)
+        self.assertIn("nemotron-3.5-asr-streaming-0.6b", asr_obj.support_model)
+        self.assertIn("wannaphong/nemotron-3.5-asr-streaming-0.6b-onnx-int4", asr_obj.support_model)
+        self.assertIn("wannaphong/typhoon-asr-streaming-nemotron-0.6b-int4-onnx", asr_obj.support_model)
+        self.assertIn("wannaphong/typhoon-asr-streaming-nemotron-0.6b-fp32-onnx", asr_obj.support_model)
+
 
     def test_typhoon_feature_extraction(self):
         """Test Slaney mel filterbank and feature extraction on numpy arrays."""
@@ -433,6 +463,131 @@ class TestKhaveePackage(unittest.TestCase):
         self.assertEqual(res["chunks"][0]["start"], 0.1)
         self.assertEqual(res["chunks"][0]["end"], 0.2)
 
+    def test_nemotron_imports_and_aliases(self):
+        """Verify Nemotron ASR classes, functions, and aliases."""
+        self.assertTrue(callable(NemotronStreamingASR))
+        self.assertTrue(callable(NemotronASR))
+        self.assertIs(NemotronASR, NemotronStreamingASR)
+        self.assertTrue(callable(NemotronStreamASR))
+        self.assertTrue(callable(RealtimeStreamNemotron))
+        self.assertIs(RealtimeStreamNemotron, NemotronStreamASR)
+        self.assertTrue(callable(get_nemotron_asr_model_files))
+        self.assertTrue(callable(extract_nemotron_features))
+
+    def test_extract_nemotron_features(self):
+        """Test Nemotron 128-mel feature extraction."""
+        sr = 16000
+        duration = 0.56  # 560 ms
+        t = np.linspace(0, duration, int(sr * duration), endpoint=False, dtype=np.float32)
+        audio = 0.5 * np.sin(2 * np.pi * 440 * t)
+        features = extract_nemotron_features(audio, sample_rate=sr)
+        self.assertEqual(features.ndim, 2)
+        self.assertEqual(features.shape[1], 128)
+        self.assertGreater(features.shape[0], 0)
+
+    def test_nemotron_prompt_resolution(self):
+        """Test language prompt ID resolution."""
+        model = NemotronStreamingASR.__new__(NemotronStreamingASR)
+        model.default_language = "th-TH"
+        from pythaiasr.nemotron_asr import NEMOTRON_PROMPTS
+        model.prompt_dict = dict(NEMOTRON_PROMPTS)
+
+        self.assertEqual(model.resolve_lang_id("th-TH"), 32)
+        self.assertEqual(model.resolve_lang_id("th"), 32)
+        self.assertEqual(model.resolve_lang_id("thai"), 32)
+        self.assertEqual(model.resolve_lang_id("en-US"), 0)
+        self.assertEqual(model.resolve_lang_id("auto"), 101)
+        self.assertEqual(model.resolve_lang_id(42), 42)
+        self.assertEqual(model.resolve_lang_id(None), 32)
+
+    def test_nemotron_decode_tokens(self):
+        """Test Nemotron token decoding and tag stripping."""
+        model = NemotronStreamingASR.__new__(NemotronStreamingASR)
+        model.vocab = ["<unk>", "<th-TH>", "\u2581สวัสดี", "ครับ", "<blank>"]
+        tokens = [1, 2, 3]  # <th-TH>, \u2581สวัสดี, ครับ
+        decoded = model.decode_token_ids(tokens)
+        self.assertEqual(decoded, "สวัสดีครับ")
+
+    def test_nemotron_timestamps(self):
+        """Test Nemotron token timestamp grouping."""
+        model = NemotronStreamingASR.__new__(NemotronStreamingASR)
+        model.vocab = ["<unk>", "\u2581ภาษา", "ไทย", "\u2581ง่าย"]
+        tokens = [1, 2, 3]
+        timestamps = [0, 1, 5]  # frame 0, 1, 5
+        chunks = model.tokens_to_timestamp_chunks(tokens, timestamps, sample_rate=16000)
+        self.assertEqual(len(chunks), 2)
+        self.assertEqual(chunks[0]["text"], "ภาษาไทย")
+        self.assertEqual(chunks[0]["start"], 0.0)
+        self.assertEqual(chunks[0]["end"], 0.16)
+        self.assertEqual(chunks[1]["text"], "ง่าย")
+
+    def test_mock_nemotron_transcribe_and_streaming(self):
+        """Test NemotronStreamingASR and NemotronStreamASR with mocked ONNX runtime."""
+        from unittest.mock import MagicMock
+        model = NemotronStreamingASR.__new__(NemotronStreamingASR)
+        model.vocab = ["<unk>", "\u2581ทด", "สอบ", "<blank>"]
+        model.blank_id = 3
+        model.hidden_dim = 640
+        model.encoder_dim = 1024
+        model.num_layers = 24
+        model.left_context = 56
+        model.conv_context = 8
+        model.pre_encode_cache_size = 9
+        model.chunk_frames = 56
+        model.chunk_samples = 8960
+        model.sample_rate = 16000
+        model.max_symbols_per_step = 10
+        model.default_language = "th-TH"
+        from pythaiasr.nemotron_asr import NEMOTRON_PROMPTS
+        model.prompt_dict = dict(NEMOTRON_PROMPTS)
+
+        model.encoder_session = MagicMock()
+        model.decoder_session = MagicMock()
+        model.joint_session = MagicMock()
+
+        # Mock encoder output: (1, 7, 1024)
+        mock_enc_out = np.zeros((1, 7, 1024), dtype=np.float32)
+        mock_cache_ch = np.zeros((1, 24, 56, 1024), dtype=np.float32)
+        mock_cache_tm = np.zeros((1, 24, 1024, 8), dtype=np.float32)
+        mock_cache_len = np.array([56], dtype=np.int64)
+        model.encoder_session.run.return_value = (
+            mock_enc_out, np.array([7]), mock_cache_ch, mock_cache_tm, mock_cache_len
+        )
+
+        # Mock greedy_decode
+        model.greedy_decode = MagicMock(side_effect=[
+            ([1, 2], [0, 1], np.zeros((2, 1, 640)), np.zeros((2, 1, 640)), 3),
+            ([], [], np.zeros((2, 1, 640)), np.zeros((2, 1, 640)), 3),
+            ([1, 2], [0, 1], np.zeros((2, 1, 640)), np.zeros((2, 1, 640)), 3),
+            ([], [], np.zeros((2, 1, 640)), np.zeros((2, 1, 640)), 3),
+        ])
+
+        dummy_audio = np.zeros(8960, dtype=np.float32)
+        text = model.transcribe(dummy_audio)
+        self.assertEqual(text, "ทดสอบ")
+
+
+        # Test streaming session
+        streamer = NemotronStreamASR(model=model, sample_rate=16000, step_sec=0.56)
+        chunk_text = streamer.process_chunk(dummy_audio)
+        self.assertEqual(chunk_text, "ทดสอบ")
+        self.assertEqual(streamer.get_full_transcript(), "ทดสอบ")
+
+    def test_asr_class_nemotron_dispatch(self):
+        """Test that ASR class correctly dispatches Nemotron models."""
+        from unittest.mock import MagicMock, patch
+        with patch("pythaiasr.NemotronStreamingASR") as mock_engine_class:
+            mock_inst = MagicMock()
+            mock_engine_class.return_value = mock_inst
+            engine = ASR(model="nemotron_asr")
+            self.assertTrue(engine.is_nemotron)
+            self.assertFalse(engine.is_typhoon)
+            self.assertEqual(engine.model, mock_inst)
+
+            engine(np.zeros(16000, dtype=np.float32))
+            mock_inst.transcribe.assert_called_once()
+
 
 if __name__ == '__main__':
     unittest.main()
+
