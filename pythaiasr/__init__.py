@@ -87,6 +87,8 @@ class ASR:
             * *biodatlab/whisper-th-large-combined* - Thai Whisper large model (requires pythaiasr[torch])
             * *biodatlab/whisper-th-medium-timestamp* - Thai Whisper medium model with timestamp support (requires pythaiasr[torch])
         """
+        if model == "whisper":
+            model = "openai/whisper-small"
         self.model_name = model
         self.support_model = [
             "airesearch/wav2vec2-large-xlsr-53-th",
@@ -96,6 +98,12 @@ class ASR:
             "biodatlab/whisper-th-medium-combined",
             "biodatlab/whisper-th-large-combined",
             "biodatlab/whisper-th-medium-timestamp",
+            "openai/whisper-tiny",
+            "openai/whisper-base",
+            "openai/whisper-small",
+            "openai/whisper-medium",
+            "openai/whisper-large-v3",
+            "openai/whisper-large-v3-turbo",
             "typhoon_asr",
             "typhoon-asr-realtime",
             "wannaphong/typhoon-asr-realtime-onnx",
@@ -121,6 +129,12 @@ class ASR:
             "biodatlab/whisper-th-medium-combined",
             "biodatlab/whisper-th-large-combined",
             "biodatlab/whisper-th-medium-timestamp",
+            "openai/whisper-tiny",
+            "openai/whisper-base",
+            "openai/whisper-small",
+            "openai/whisper-medium",
+            "openai/whisper-large-v3",
+            "openai/whisper-large-v3-turbo",
         ]
         self.typhoon_models = [
             "typhoon_asr",
@@ -191,10 +205,15 @@ class ASR:
             self.model = AutoModelForCTC.from_pretrained(self.model_name).to(self.device)
 
     def speech_file_to_array_fn(self, batch: dict) -> dict:
-        if torchaudio is None:
-            raise ImportError("torchaudio is required for audio loading. Install it with: pip install torchaudio")
-        speech_array, sampling_rate = torchaudio.load(batch["path"])
-        batch["speech"] = speech_array[0]
+        import soundfile as sf
+        speech_array, sampling_rate = sf.read(batch["path"], dtype="float32")
+        if speech_array.ndim > 1:
+            speech_array = speech_array.mean(axis=1)
+        if sampling_rate != 16_000:
+            import soxr
+            speech_array = soxr.resample(speech_array, sampling_rate, 16_000, quality="HQ")
+            sampling_rate = 16_000
+        batch["speech"] = speech_array
         batch["sampling_rate"] = sampling_rate
         return batch
 
@@ -261,10 +280,11 @@ class ASR:
                 b["sampling_rate"] = 16_000
             
             input_features = self.processor(b["speech"], sampling_rate=16_000, return_tensors="pt").input_features
-            input_features = input_features.to(self.device)
-            
+            input_features = input_features.to(self.device, dtype=self.model.dtype)
+            gen_kwargs = {"language": "th", "task": "transcribe"} if self.model_name.startswith("openai/") else {}
+
             if use_timestamps:
-                predicted_ids = self.model.generate(input_features, return_timestamps=True)
+                predicted_ids = self.model.generate(input_features, return_timestamps=True, **gen_kwargs)
                 pred_cpu = predicted_ids[0].cpu() if hasattr(predicted_ids[0], "cpu") else predicted_ids[0]
                 chunks = []
                 txt = ""
@@ -310,7 +330,7 @@ class ASR:
                     "timestamps": chunks,
                 }
             else:
-                predicted_ids = self.model.generate(input_features)
+                predicted_ids = self.model.generate(input_features, **gen_kwargs)
                 txt = self.processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
                 return txt
         else:
